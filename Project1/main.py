@@ -63,7 +63,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         'val_loss': []
     }
 
-    for epoch in tqdm(range(num_epochs), unit='epoch'):
+    for epoch in range(num_epochs):
         model.train()
         #For each epoch
         train_correct = 0
