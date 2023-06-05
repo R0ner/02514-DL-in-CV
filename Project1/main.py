@@ -17,7 +17,7 @@ from tqdm import tqdm
 # Model
 model_type = 'ResNet'
 num_res_blocks = 9 # Only relevant for ResNet.
-dropout = 0.5
+dropout = 0
 
 # Data
 batch_size = 64
@@ -67,6 +67,9 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         'val_loss': []
     }
 
+    # Current learning rate
+    current_lr = lr
+
     for epoch in range(num_epochs):
         model.train()
         #For each epoch
@@ -110,7 +113,8 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         out_dict['val_loss'].append(mean_val_loss)
         print(
             f"Epoch: {epoch}\t Loss train: {np.mean(train_loss):.3f}\t val: {mean_val_loss:.3f}\t",
-            f"Accuracy train: {out_dict['train_acc'][-1]*100:.1f}%\t val: {out_dict['val_acc'][-1]*100:.1f}%",
+            f"Accuracy train: {out_dict['train_acc'][-1]*100:.1f}%\t val: {out_dict['val_acc'][-1]*100:.1f}%\t",
+            f"Learning rate: {current_lr:.1e}",
         )
 
         # Learning rate scheduler step
@@ -119,6 +123,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
                 scheduler.step(mean_val_loss)
             else:
                 scheduler.step()
+            current_lr = scheduler._last_lr[0]
         
         # Early stopping
         if earlystopper is not None:
@@ -130,7 +135,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
-    model = CNN.ResNet(3, 8, in_size, num_res_blocks=num_res_blocks, dropout=dropout)
+    model = CNN.ResNet(3, 32, in_size, num_res_blocks=num_res_blocks, dropout=dropout)
 elif model_type.lower() == 'cnn_4':
     model = CNN.CNN_4(3, in_size, dropout=dropout)
 model.to(device)
