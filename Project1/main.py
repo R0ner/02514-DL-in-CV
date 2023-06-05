@@ -17,6 +17,7 @@ from tqdm import tqdm
 # Model
 model_type = 'ResNet'
 num_res_blocks = 9 # Only relevant for ResNet.
+dropout = 0.5
 
 # Data
 batch_size = 64
@@ -129,9 +130,9 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
-    model = CNN.ResNet(3, 8, in_size, num_res_blocks=num_res_blocks)
+    model = CNN.ResNet(3, 8, in_size, num_res_blocks=num_res_blocks, dropout=dropout)
 elif model_type.lower() == 'cnn_4':
-    model = CNN.CNN_4(3, in_size, dropout=0.5)
+    model = CNN.CNN_4(3, in_size, dropout=dropout)
 model.to(device)
 
 # Get optimizer
