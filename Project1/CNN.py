@@ -13,10 +13,10 @@ class ResNetBlock(nn.Module):
             nn.Conv2d(n_features, n_features, 3, stride=1, padding=1),
             nn.BatchNorm2d(num_features=n_features)
         )
-        self.add_block(nn.Sequential(
+        self.add_block = nn.Sequential(
             nn.ReLU(),
             nn.Dropout2d(dropout)
-        ))
+        )
 
     def forward(self, x):
         out = self.add_block(self.conv_block(x) + x)
