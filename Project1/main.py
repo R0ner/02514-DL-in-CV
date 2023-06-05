@@ -98,18 +98,18 @@ def train(model, optimizer, num_epochs=10):
 
 # Get model
 in_size = (64, 64) # h, w
-if model_type == 'ResNet':
+if model_type.lower() == 'resnet':
     model = CNN.ResNet(3, 16, in_size)
-elif model_type == 'CNN_4':
+elif model_type.lower() == 'cnn_4':
     model = CNN.CNN_4(3, in_size, dropout=0.5)
 
 # Get optimizer
-if optim_type == 'sgd':
+if optim_type.lower() == 'sgd':
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-elif optim_type == 'adam':
+elif optim_type.lower() == 'adam':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-print(f"Training CNN model type '{model_type}' using '{optim_type}' optimization.\n'{model_type}' parameters:\n\n{model}\n\n...")
+print(f"Training CNN model type '{model_type}' using '{optim_type.upper()}' optimization.\n'{model_type}' parameters:\n\n{model}\n\n...")
 
 # main training loop
 out_dict = train(model, optimizer)
