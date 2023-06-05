@@ -61,9 +61,9 @@ class CNN_4(nn.Module):
 
             nn.Conv2d(8, 8, 3, stride=1, padding=1),
             nn.BatchNorm2d(num_features=8), 
-            nn.ReLU(),
-            nn.Dropout(dropout), 
+            nn.ReLU(), 
             nn.MaxPool2d(2, stride=2),
+            nn.Dropout(dropout),
 
             nn.Conv2d(8, 16, 3, stride=1, padding=1),
             nn.BatchNorm2d(num_features=16), 
@@ -76,11 +76,13 @@ class CNN_4(nn.Module):
         )
 
         self.fully_connected = nn.Sequential(
-            nn.Linear((h//2) * (w // 2) * 16, 500),
-            nn.BatchNorm1d(500),
+            nn.Linear((h // 2) * (w // 2) * 16, 2048),
+            nn.BatchNorm1d(2048),
             nn.ReLU(), 
-            nn.Dropout(dropout),
-            nn.Linear(500, 2),
+            nn.Linear(2048, 512),
+            nn.BatchNorm1d(512), 
+            nn.ReLU(),
+            nn.Linear(512, 2), 
             nn.LogSoftmax(dim=1))
 
     def forward(self, x):
