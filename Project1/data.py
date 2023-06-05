@@ -1,9 +1,13 @@
+import os
+
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 
 train_dir = '/dtu/datasets1/02514/hotdog_nothotdog/train'
 test_dir = '/dtu/datasets1/02514/hotdog_nothotdog/test'
+
+assert os.path.exists(train_dir) and os.path.exists(test_dir)
 
 # Standardization is done according to ImageNet (mean and std. for ImageNet)
 standardize = transforms.Normalize([0.485, 0.456, 0.406],
