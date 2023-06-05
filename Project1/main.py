@@ -57,8 +57,8 @@ train_dataset, val_dataset, train_loader, val_loader = get_dataloaders(batch_siz
 def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 
     def loss_fun(output, target):
-        # NOTE: Here we assume nn.LogSoftmax output.
-        return F.nll_loss(output, target)
+        # NOTE: Binary cross entropy
+        return F.binary_cross_entropy(output, target)
 
     out_dict = {
         'train_acc': [],
