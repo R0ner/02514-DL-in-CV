@@ -105,7 +105,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         out_dict['train_loss'].append(np.mean(train_loss))
         out_dict['val_loss'].append(mean_val_loss)
         print(
-            f"Loss train: {np.mean(train_loss):.3f}\t val: {mean_val_loss:.3f}\t",
+            f"Epoch: {epoch}\t Loss train: {np.mean(train_loss):.3f}\t val: {mean_val_loss:.3f}\t",
             f"Accuracy train: {out_dict['train_acc'][-1]*100:.1f}%\t val: {out_dict['val_acc'][-1]*100:.1f}%",
         )
 
