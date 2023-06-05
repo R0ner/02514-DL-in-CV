@@ -1,4 +1,5 @@
 import os
+import json
 
 import CNN
 import matplotlib.pyplot as plt
@@ -22,14 +23,19 @@ num_workers = 8
 # Optimization/training
 optim_type = 'adam' # adam or sgd
 lr = 1e-3
-num_epochs = 10  # TODO: Implement early stopping.
+num_epochs = 1  # TODO: Implement early stopping.
 
 # Paths
-save_path = f'models/{model_type}.pt'
+save_dir = f'models/{model_type.lower()}'
 data_dir = 'exercises/data'
 
 if not os.path.exists('models'):
     os.mkdir('models')
+
+if not os.path.exists(save_dir):
+    os.mkdir(save_dir)
+    os.mkdir(save_dir + '/checkpoints')
+    os.mkdir(save_dir + '/stats')
 
 # Check if cuda is available.
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -113,8 +119,20 @@ elif optim_type.lower() == 'adam':
 print(f"Training CNN model type '{model_type}' using '{optim_type.upper()}' optimization.\n'{model_type}' parameters:\n\n{model}\n\n...")
 
 # main training loop
-out_dict = train(model, optimizer)
+out_dict = train(model, optimizer, num_epochs=num_epochs)
 
 # Save
+idx = len(os.listdir(f'{save_dir}/checkpoints'))
+model_name = f'{model_type.lower()}_{idx}'
+
+# Checkpoint
+save_path = f'{save_dir}/checkpoints/{model_name}.pt'
 print(f'Saving model to:\t{save_path}')
 torch.save(model.state_dict(), save_path)
+
+# Stats
+save_path = f'{save_dir}/stats/{model_name}.json'
+print(f'Saving stats to:\t{save_path}')
+
+with open(save_path, 'w') as f:
+    json.dump(out_dict, f, indent=6)
