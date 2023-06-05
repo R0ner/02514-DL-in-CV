@@ -38,7 +38,7 @@ class ResNet(nn.Module):
             nn.Linear(2048, 512),
             nn.BatchNorm1d(512), 
             nn.ReLU(),
-            nn.Linear(512, 10), 
+            nn.Linear(512, 7), 
             nn.LogSoftmax(dim=1))
 
     def forward(self, x):
@@ -80,7 +80,7 @@ class CNN_4(nn.Module):
             nn.BatchNorm1d(500),
             nn.ReLU(), 
             nn.Dropout(dropout),
-            nn.Linear(500, 10),
+            nn.Linear(500, 7),
             nn.LogSoftmax(dim=1))
 
     def forward(self, x):
