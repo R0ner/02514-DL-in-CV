@@ -39,10 +39,10 @@ transform_augment = transforms.Compose([
 
 def get_dataloaders(batch_size: int,
                     num_workers: int = 8,
-                    data_augmentation: bool = True) -> tuple(DataLoader):
+                    data_augmentation: bool = True):
     """Get train and validation dataloaders for the hotdog dataset.
     Returns: 
-        tuple(train_loader, val_loader)    torch dataloaders for the train and validation set respectively"""
+        tuple(train_dataset, val_dataset, train_loader, val_loader)    torch datasets dataloaders for the train and validation set respectively"""
     if data_augmentation:
         transform_train = transform_augment
     else:
@@ -61,5 +61,5 @@ def get_dataloaders(batch_size: int,
                             batch_size=batch_size,
                             shuffle=True,
                             num_workers=num_workers)
-    
-    return train_loader, val_loader
+
+    return train_dataset, val_dataset, train_loader, val_loader
