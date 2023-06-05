@@ -33,6 +33,8 @@ num_epochs = 100
 
 # Paths
 save_dir = f'models/{model_type.lower()}'
+if model_type.lower() == 'resnet':
+    save_dir = save_dir + str(num_res_blocks)
 data_dir = 'exercises/data'
 
 if not os.path.exists('models'):
