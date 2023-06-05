@@ -58,7 +58,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 
     def loss_fun(output, target):
         # NOTE: Binary cross entropy
-        return F.binary_cross_entropy(output, target)
+        return F.binary_cross_entropy_with_logits(output.squeeze(), target.float())
 
     out_dict = {
         'train_acc': [],
@@ -78,21 +78,29 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         for minibatch_no, (data, target) in tqdm(enumerate(train_loader),
                                                  total=len(train_loader)):
             data, target = data.to(device), target.to(device)
+            
             #Zero the gradients computed for each weight
             optimizer.zero_grad()
+            
             #Forward pass your image through the network
             output = model(data)
+            
             #Compute the loss
             loss = loss_fun(output, target)
+            
             #Backward pass through the network
             loss.backward()
+            
             #Update the weights
             optimizer.step()
 
             train_loss.append(loss.item())
+            
             #Compute how many were correctly classified
-            predicted = output.argmax(1)
+            prob = F.sigmoid(output.squeeze())
+            predicted = (prob > .5).long()
             train_correct += (target == predicted).sum().cpu().item()
+        
         #Compute the val accuracy
         val_loss = []
         val_correct = 0
@@ -102,7 +110,9 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
             with torch.no_grad():
                 output = model(data)
             val_loss.append(loss_fun(output, target).cpu().item())
-            predicted = output.argmax(1)
+            
+            prob = F.sigmoid(output.squeeze())
+            predicted = (prob > .5).long()
             val_correct += (target == predicted).sum().cpu().item()
 
         mean_val_loss = np.mean(val_loss)

@@ -46,8 +46,7 @@ class ResNet(nn.Module):
             nn.BatchNorm1d(512), 
             nn.ReLU(),
             nn.Dropout1d(dropout),
-            nn.Linear(512, 1), 
-            nn.Sigmoid())
+            nn.Linear(512, 1))
 
     def forward(self, x):
         x = self.res_blocks(x)
@@ -92,8 +91,7 @@ class CNN_4(nn.Module):
             nn.BatchNorm1d(512), 
             nn.ReLU(),
             nn.Dropout1d(dropout),
-            nn.Linear(512, 1), 
-            nn.Sigmoid())
+            nn.Linear(512, 1))
 
     def forward(self, x):
         x = self.convolutional(x)
