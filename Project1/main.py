@@ -16,6 +16,7 @@ from tqdm import tqdm
 # TODO: Get hyperparameters in argparser or similar.
 # Model
 model_type = 'ResNet'
+num_res_blocks = 9 # Only relevant for ResNet.
 
 # Data
 batch_size = 64
@@ -126,7 +127,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
-    model = CNN.ResNet(3, 8, in_size)
+    model = CNN.ResNet(3, 8, in_size, num_res_blocks=num_res_blocks)
 elif model_type.lower() == 'cnn_4':
     model = CNN.CNN_4(3, in_size, dropout=0.5)
 model.to(device)
@@ -153,7 +154,11 @@ out_dict = train(model, optimizer, scheduler=scheduler, earlystopper=earlystoppe
 
 # Save
 idx = len(os.listdir(f'{save_dir}/checkpoints'))
-model_name = f'{model_type.lower()}_{idx}'
+
+if model_type.lower() == 'resnet':
+    model_name = f'{model_type.lower()}{num_res_blocks}_{idx}'
+else:
+    model_name = f'{model_type.lower()}_{idx}'
 
 # Checkpoint
 save_path = f'{save_dir}/checkpoints/{model_name}.pt'
