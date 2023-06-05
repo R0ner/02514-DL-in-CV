@@ -99,9 +99,10 @@ def train(model, optimizer, num_epochs=10):
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
-    model = CNN.ResNet(3, 16, in_size)
+    model = CNN.ResNet(3, 8, in_size)
 elif model_type.lower() == 'cnn_4':
     model = CNN.CNN_4(3, in_size, dropout=0.5)
+model.to(device)
 
 # Get optimizer
 if optim_type.lower() == 'sgd':
