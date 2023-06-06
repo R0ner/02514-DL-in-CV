@@ -87,6 +87,7 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         return F.binary_cross_entropy_with_logits(output.squeeze(), target.float())
 
     out_dict = {
+        'epoch': [],
         'train_acc': [],
         'val_acc': [],
         'train_loss': [],
@@ -143,7 +144,8 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
             val_correct += (target == predicted).sum().cpu().item()
 
         mean_val_loss = np.mean(val_loss)
-
+        
+        out_dict['epoch'].append(epoch)
         out_dict['train_acc'].append(train_correct / len(train_dataset))
         out_dict['val_acc'].append(val_correct / len(val_dataset))
         out_dict['train_loss'].append(np.mean(train_loss))
@@ -216,6 +218,7 @@ out_dict['model'] = model_type.lower()
 out_dict['model_name'] = model_name
 out_dict['data_augmentation'] = data_augmentation
 out_dict['optimizer'] = optim_type.upper()
+out_dict['batch_norm'] = BN
 
 # Checkpoint
 save_path = f'{save_dir}/checkpoints/{model_name}.pt'

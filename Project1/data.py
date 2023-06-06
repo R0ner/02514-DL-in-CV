@@ -30,10 +30,14 @@ transform = transforms.Compose([transform_base, standardize])
 # With augmentation
 # TODO: More types of augmentation?
 transform_augment = transforms.Compose([
-    transform_base,
     transforms.RandomHorizontalFlip(p=0.5),
-    transforms.ColorJitter(.1, .1, .1, .05),
-    transforms.RandomRotation(20), standardize
+    transforms.RandomApply([transforms.RandomRotation(45)], p=0.4),
+    transforms.RandomPerspective(distortion_scale=0.4, p=0.1),
+    transforms.RandomApply([transforms.ColorJitter(.5, .5, .2, .1)], p=0.3),
+    transforms.RandomApply([transforms.Grayscale(num_output_channels=3)], p=0.1),
+    transforms.RandomApply([transforms.RandomResizedCrop(64, scale=(.3, 1))], p=.9),
+    transform_base,
+    standardize
 ])
 
 
