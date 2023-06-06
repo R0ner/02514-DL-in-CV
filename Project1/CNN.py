@@ -72,41 +72,68 @@ class RN18():
 
 class CNN_4(nn.Module):
 
-    def __init__(self, n_in, in_size, dropout=0.5):
+    def __init__(self, n_in, in_size, dropout=0.5, BN=True):
         super(CNN_4, self).__init__()
         h, w = in_size
-        self.convolutional = nn.Sequential(
-            nn.Conv2d(n_in, 8, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=8), 
-            nn.ReLU(),
-            nn.Dropout2d(dropout),
+        if BN:
+            self.convolutional = nn.Sequential(
+                nn.Conv2d(n_in, 8, 3, stride=1, padding=1),
+                nn.BatchNorm2d(num_features=8), 
+                nn.ReLU(),
+                nn.Dropout2d(dropout),
 
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=8), 
-            nn.ReLU(), 
-            nn.MaxPool2d(2, stride=2),
-            nn.Dropout2d(dropout),
+                nn.Conv2d(8, 8, 3, stride=1, padding=1),
+                nn.BatchNorm2d(num_features=8), 
+                nn.ReLU(), 
+                nn.MaxPool2d(2, stride=2),
+                nn.Dropout2d(dropout),
 
-            nn.Conv2d(8, 16, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=16), 
-            nn.ReLU(),
-            nn.Dropout2d(dropout),
-            nn.Conv2d(16, 16, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=16), 
-            nn.ReLU(),
-            nn.Dropout2d(dropout)
-        )
+                nn.Conv2d(8, 16, 3, stride=1, padding=1),
+                nn.BatchNorm2d(num_features=16), 
+                nn.ReLU(),
+                nn.Dropout2d(dropout),
+                nn.Conv2d(16, 16, 3, stride=1, padding=1),
+                nn.BatchNorm2d(num_features=16), 
+                nn.ReLU(),
+                nn.Dropout2d(dropout))
 
-        self.fully_connected = nn.Sequential(
-            nn.Linear((h // 2) * (w // 2) * 16, 2048),
-            nn.BatchNorm1d(2048),
-            nn.ReLU(), 
-            nn.Dropout1d(dropout),
-            nn.Linear(2048, 512),
-            nn.BatchNorm1d(512), 
-            nn.ReLU(),
-            nn.Dropout1d(dropout),
-            nn.Linear(512, 1))
+            self.fully_connected = nn.Sequential(
+                nn.Linear((h // 2) * (w // 2) * 16, 2048),
+                nn.BatchNorm1d(2048),
+                nn.ReLU(), 
+                nn.Dropout1d(dropout),
+                nn.Linear(2048, 512),
+                nn.BatchNorm1d(512), 
+                nn.ReLU(),
+                nn.Dropout1d(dropout),
+                nn.Linear(512, 1))
+            
+        else:
+            self.convolutional = nn.Sequential(
+                nn.Conv2d(n_in, 8, 3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Dropout2d(dropout),
+
+                nn.Conv2d(8, 8, 3, stride=1, padding=1),
+                nn.ReLU(), 
+                nn.MaxPool2d(2, stride=2),
+                nn.Dropout2d(dropout),
+
+                nn.Conv2d(8, 16, 3, stride=1, padding=1), 
+                nn.ReLU(),
+                nn.Dropout2d(dropout),
+                nn.Conv2d(16, 16, 3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Dropout2d(dropout))
+
+            self.fully_connected = nn.Sequential(
+                nn.Linear((h // 2) * (w // 2) * 16, 2048),
+                nn.ReLU(), 
+                nn.Dropout1d(dropout),
+                nn.Linear(2048, 512), 
+                nn.ReLU(),
+                nn.Dropout1d(dropout),
+                nn.Linear(512, 1))
 
     def forward(self, x):
         x = self.convolutional(x)
