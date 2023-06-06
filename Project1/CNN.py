@@ -56,19 +56,18 @@ class ResNet(nn.Module):
         out = self.fc(x)
         return out
 
-class RN18():
-    def __init__(self, freeze):
-        print(f"Freeze set to: {freeze}")
-        self.freeze = freeze
-        self.ResNet18 = tvm.resnet18(weights=tvm.ResNet18_Weights.DEFAULT) #Most up to date weights
-        self.num_features = self.ResNet18.fc.in_features
-        self.ResNet18.fc = nn.Linear(self.num_features, 2) # Predict 2 classes
-        if self.freeze:
-            for name, param in self.ResNet18.named_parameters():
-                param.requires_grad = False
-            for name, param in self.ResNet18.fc.named_parameters():
-                param.requires_grad = True
-
+def RN18(freeze):
+    print(f"Freeze set to: {freeze}")
+    
+    ResNet18 = tvm.resnet18(weights=tvm.ResNet18_Weights.DEFAULT) #Most up to date weights
+    num_features = ResNet18.fc.in_features
+    ResNet18.fc = nn.Linear(num_features, 1) # One logit for two classes.
+    if freeze:
+        for name, param in ResNet18.named_parameters():
+            param.requires_grad = False
+        for name, param in ResNet18.fc.named_parameters():
+            param.requires_grad = True
+    return ResNet18
 
 class CNN_4(nn.Module):
 
