@@ -84,23 +84,23 @@ class CNN_4(nn.Module):
         
         self.convolutional = [
             nn.Conv2d(n_in, 16, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=8), 
+            nn.BatchNorm2d(num_features=16), 
             nn.ReLU(),
             nn.Dropout2d(dropout),
 
             nn.Conv2d(16, 16, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=8), 
+            nn.BatchNorm2d(num_features=16), 
             nn.ReLU(), 
             nn.MaxPool2d(2, stride=2),
             nn.Dropout2d(dropout),
 
             nn.Conv2d(16, 32, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=16), 
+            nn.BatchNorm2d(num_features=32), 
             nn.ReLU(),
             nn.Dropout2d(dropout),
 
             nn.Conv2d(32, 32, 3, stride=1, padding=1),
-            nn.BatchNorm2d(num_features=16), 
+            nn.BatchNorm2d(num_features=32), 
             nn.ReLU(),
             nn.Dropout2d(dropout)
         ]

@@ -18,7 +18,7 @@ title = "Which model type would you like to train?: "
 options = ["ResNet", "CNN_4", "RN18_Freeze", "RN18"]
 option = pick(options, title, indicator="=>", default_index=0)
 model_type = option[0]
-print(f"You chose: {model_type}")
+print(f"You chose:\t{model_type}")
 
 num_res_blocks = 9 # Only relevant for ResNet.
 dropout = 0
@@ -27,26 +27,34 @@ dropout = 0
 title = "Should data augmentation be applied? "
 options = ["yes", "no"] 
 option = pick(options, title, indicator="=>", default_index=0)
+data_augmentation = option[0] == "yes"
 batch_size = 64
-data_augmentation = option == "yes"
 num_workers = 8
+print(f'Data augm.:\t{data_augmentation}')
 
+# Batch normalization.
+title = "Should batch normalization be used? "
+options = ["yes", "no"] 
+option = pick(options, title, indicator="=>", default_index=0)
+BN = option[0] == "yes"
+print(f'Batch norm:\t{BN}')
+
+# Optimizer
 title = "Which optimizer should be used? "
 options = ["adam", "sgd"]
 option = pick(options, title, indicator="=>", default_index=0)
 optim_type = option[0]
-print(f"You chose: {optim_type}")
-
+print(f"You chose:\t{optim_type}")
 
 # Optimization/training
 title = "Which LR-scheduler should be used? "
 options = ["reducelronplateau", "expdecay"] 
 option = pick(options, title, indicator="=>", default_index=0)
 lrscheduler_type = option[0] # "reducelronplateau" or "expdecay"
-print(f"You chose: {lrscheduler_type}")
+print(f"You chose:\t{lrscheduler_type}")
 
 early_stopping = True
-early_stopping_patience = 10 # Only relevant for if early_stopping = True
+early_stopping_patience = 6 # Only relevant for if early_stopping = True
 lr = 1e-3
 num_epochs = 100 
 
@@ -166,9 +174,9 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
-    model = CNN.ResNet(3, 32, in_size, num_res_blocks=num_res_blocks, dropout=dropout)
+    model = CNN.ResNet(3, 32, in_size, num_res_blocks=num_res_blocks, dropout=dropout, BN=BN)
 elif model_type.lower() == 'cnn_4':
-    model = CNN.CNN_4(3, in_size, dropout=dropout)
+    model = CNN.CNN_4(3, in_size, dropout=dropout, BN=BN)
 elif model_type.lower() == 'rn18_freeze':
     model = CNN.RN18(True)
 elif model_type.lower() == 'rn18':
