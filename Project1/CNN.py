@@ -6,14 +6,16 @@ class ResNetBlock(nn.Module):
 
     def __init__(self, n_features, dropout=.5, BN=True):
         super(ResNetBlock, self).__init__()
-        self.conv_block = nn.Sequential(
+        self.conv_block = [
             nn.Conv2d(n_features, n_features, 3, stride=1, padding=1),
             nn.ReLU(),
             nn.Dropout2d(dropout),
             nn.BatchNorm2d(num_features=n_features), 
             nn.Conv2d(n_features, n_features, 3, stride=1, padding=1),
             nn.BatchNorm2d(num_features=n_features)
-        )
+        ]
+
+        self.conv_block = nn.Sequential(*[m for m in self.conv_block if BN or not isinstance(m, nn.BatchNorm2d)])
         self.add_block = nn.Sequential(
             nn.ReLU(),
             nn.Dropout2d(dropout)
@@ -38,7 +40,7 @@ class ResNet(nn.Module):
         ]
 
         for _ in range(num_res_blocks):
-            conv_layers.append(ResNetBlock(n_features, dropout=dropout))
+            conv_layers.append(ResNetBlock(n_features, dropout=dropout, BN=BN))
         
         self.res_blocks = nn.Sequential(*[m for m in conv_layers if BN or not isinstance(m, nn.BatchNorm2d)])
         self.fc = [
