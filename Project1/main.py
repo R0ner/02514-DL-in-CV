@@ -16,7 +16,7 @@ from tqdm import tqdm
 # Model
 title = "Which model type would you like to train?: "
 options = ["ResNet", "CNN_4", "RN18_Freeze", "RN18"]
-option = pick(options, title, indicator="-->", default_index=0)
+option = pick(options, title, indicator="=>", default_index=0)
 model_type = option[0]
 print(f"You chose: {model_type}")
 
@@ -24,8 +24,11 @@ num_res_blocks = 9 # Only relevant for ResNet.
 dropout = 0
 
 # Data
+title = "Should data augmentation be applied? "
+options = ["yes", "no"] 
+option = pick(options, title, indicator="=>", default_index=0)
 batch_size = 64
-data_augmentation = True
+data_augmentation = option == "yes"
 num_workers = 8
 
 title = "Which optimizer should be used? "
@@ -39,7 +42,7 @@ print(f"You chose: {optim_type}")
 title = "Which LR-scheduler should be used? "
 options = ["reducelronplateau", "expdecay"] 
 option = pick(options, title, indicator="=>", default_index=0)
-lrscheduler_type = option[0]
+lrscheduler_type = option[0] # "reducelronplateau" or "expdecay"
 print(f"You chose: {lrscheduler_type}")
 
 early_stopping = True
@@ -79,7 +82,8 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         'train_acc': [],
         'val_acc': [],
         'train_loss': [],
-        'val_loss': []
+        'val_loss': [],
+        'lr': []
     }
 
     # Current learning rate
@@ -136,6 +140,8 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
         out_dict['val_acc'].append(val_correct / len(val_dataset))
         out_dict['train_loss'].append(np.mean(train_loss))
         out_dict['val_loss'].append(mean_val_loss)
+        out_dict['lr'].append(current_lr)
+
         print(
             f"Epoch: {epoch}\t Loss train: {np.mean(train_loss):.3f}\t val: {mean_val_loss:.3f}\t",
             f"Accuracy train: {out_dict['train_acc'][-1]*100:.1f}%\t val: {out_dict['val_acc'][-1]*100:.1f}%\t",
@@ -189,13 +195,19 @@ print(f"Training CNN model type '{model_type}' using '{optim_type.upper()}' opti
 # main training loop
 out_dict = train(model, optimizer, scheduler=scheduler, earlystopper=earlystopper, num_epochs=num_epochs)
 
-# Save
+# Save stats and checkpoint
 idx = len(os.listdir(f'{save_dir}/checkpoints'))
 
 if model_type.lower() == 'resnet':
     model_name = f'{model_type.lower()}{num_res_blocks}_{idx}'
 else:
     model_name = f'{model_type.lower()}_{idx}'
+
+# Save used hyperparamters
+out_dict['model'] = model_type.lower()
+out_dict['model_name'] = model_name
+out_dict['data_augmentation'] = data_augmentation
+out_dict['optimizer'] = optim_type.upper()
 
 # Checkpoint
 save_path = f'{save_dir}/checkpoints/{model_name}.pt'
