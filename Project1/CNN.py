@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as tvm
 
 class ResNetBlock(nn.Module):
 
@@ -54,6 +55,20 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         out = self.fc(x)
         return out
+
+class RN18():
+    def __init__(self, freeze):
+        print(f"Freeze set to: {freeze}")
+        self.freeze = freeze
+        self.ResNet18 = tvm.resnet18(weights=tvm.ResNet18_Weights.DEFAULT) #Most up to date weights
+        self.num_features = self.ResNet18.fc.in_features
+        self.ResNet18.fc = nn.Linear(self.num_features, 2) # Predict 2 classes
+        if self.freeze:
+            for name, param in self.ResNet18.named_parameters():
+                param.requires_grad = False
+            for name, param in self.ResNet18.fc.named_parameters():
+                param.requires_grad = True
+
 
 class CNN_4(nn.Module):
 
