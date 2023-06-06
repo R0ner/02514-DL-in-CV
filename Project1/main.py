@@ -2,29 +2,24 @@ import json
 import os
 
 import CNN
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision.utils as utils
 from data import get_dataloaders
 from EarlyStopping import EarlyStopper
+from pick import pick
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from tqdm import tqdm
 
 # Hyperparameters
 # TODO: Get hyperparameters in argparser or similar.
 # Model
-from pick import pick
-
 title = "Which model type would you like to train?: "
 options = ["ResNet", "CNN_4", "RN18_Freeze", "RN18"]
 option = pick(options, title, indicator="-->", default_index=0)
 model_type = option[0]
 print(f"You chose: {model_type}")
 
-
-#model_type = 'ResNet' # 'resnet', 'cnn_4', 'rn18_freeze', 'rn18'
 num_res_blocks = 9 # Only relevant for ResNet.
 dropout = 0
 
@@ -41,14 +36,12 @@ print(f"You chose: {optim_type}")
 
 
 # Optimization/training
-#optim_type = 'adam' # adam or sg
 title = "Which LR-scheduler should be used? "
-options = ["reducelronplateau", "expdecay"]
+options = ["reducelronplateau", "expdecay"] 
 option = pick(options, title, indicator="=>", default_index=0)
 lrscheduler_type = option[0]
 print(f"You chose: {lrscheduler_type}")
 
-#lrscheduler_type = 'reducelronplateau' # reducelronplateau or expdecay
 early_stopping = True
 early_stopping_patience = 10 # Only relevant for if early_stopping = True
 lr = 1e-3
