@@ -34,7 +34,8 @@ def compute_smoothgrad(model, image, label, noise_level=0.1, num_samples=30):
         noisy_image.requires_grad = True
 
         output = model(noisy_image)
-        output[0, label].backward()
+        loss = nn.functional.binary_cross_entropy(output, label.float())
+        loss.backward()
 
         accumulated_gradients += noisy_image.grad
 
