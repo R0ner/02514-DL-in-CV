@@ -48,8 +48,8 @@ def precision(y_true, y_pred):
     ground truth labels (y_true) and predicted labels (y_pred).
     They then return the evaluation metric in question.
     """
-    y_true = image_to_evaltensor(y_true).to_numpy()
-    y_pred = image_to_evaltensor(y_pred).to_numpy()
+    y_true = image_to_evaltensor(y_true).numpy()
+    y_pred = image_to_evaltensor(y_pred).numpy()
     
     return precision_score(y_true, y_pred)
 
@@ -59,8 +59,8 @@ def recall(y_true, y_pred):
     ground truth labels (y_true) and predicted labels (y_pred).
     They then return the evaluation metric in question.
     """
-    y_true = image_to_evaltensor(y_true).to_numpy()
-    y_pred = image_to_evaltensor(y_pred).to_numpy()
+    y_true = image_to_evaltensor(y_true).numpy()
+    y_pred = image_to_evaltensor(y_pred).numpy()
     
     return recall_score(y_true, y_pred)
 
