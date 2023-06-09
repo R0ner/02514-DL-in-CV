@@ -12,6 +12,17 @@ from tqdm import tqdm
 
 # Hyperparameters
 # TODO: Get hyperparameters in argparser or similar.
+
+# Getting data
+title = "Which dataset should be used? "
+options = ["SkinLesion", "Retina"] 
+option = pick(options, title, indicator="=>", default_index=0)
+data_choice = option[0]
+print(f'Dataset choice:\t{data_choice}')
+
+
+
+
 # Model
 title = "Which model type would you like to train?: "
 options = ["CNN", "UNet", "UNet_base"]
@@ -70,7 +81,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device:\t{device}')
 
 print('Getting data...')
-train_dataset, val_dataset, train_loader, val_loader = get_dataloaders(batch_size, num_workers=num_workers, data_augmentation=data_augmentation)
+if data_choice.lower() == 'skinlesion':
+    data_path = '/dtu/datasets1/02514/PH2_Dataset_images'
+    train_dataset, test_dataset, train_loader, test_loader = get_skinlesion(batch_size, num_workers=num_workers, data_augmentation=data_augmentation)
+elif data_choice.lower() == 'retina':
+    #TODO: Implement for Rune
+    data_path = '/dtu/datasets1/02514/DRIVE'
+
+# Old
+#train_dataset, val_dataset, train_loader, val_loader = get_dataloaders(batch_size, num_workers=num_workers, data_augmentation=data_augmentation)
 
 def train_old(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 
@@ -201,15 +220,15 @@ def train(model, opt, loss_fn, epochs, train_loader, test_loader):
         #Print output and put it into table ;)
         
 # Get model
+# TODO: use correct models from model.py
 in_size = (64, 64) # h, w
-if model_type.lower() == 'resnet':
+if model_type.lower() == 'cnn':
     model = CNN.ResNet(3, 32, in_size, num_res_blocks=num_res_blocks, dropout=dropout, BN=BN)
-elif model_type.lower() == 'cnn_4':
+elif model_type.lower() == 'unet':
     model = CNN.CNN_4(3, in_size, dropout=dropout, BN=BN)
-elif model_type.lower() == 'rn18_freeze':
+elif model_type.lower() == 'unet_base':
     model = CNN.RN18(True)
-elif model_type.lower() == 'rn18':
-    model = CNN.RN18(False)
+
 model.to(device)
 
 # Get optimizer
