@@ -5,12 +5,12 @@ import torch.nn.functional as F
 
 class EncDec(nn.Module):
 
-    def __init__(self, in_channels=3, n_features=64, in_size=128):
+    def __init__(self, in_channels=3, in_size=128, n_features=64):
         super().__init__()
 
         self.in_channels = in_channels
-        self.n_features = n_features
         self.in_size = in_size
+        self.n_features = n_features
 
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(self.in_channels, self.n_features, 3, padding=1)
@@ -54,11 +54,12 @@ class EncDec(nn.Module):
 
 class UNet_base(nn.Module):
     """Original UNet implementation with maxpooling and upsampling."""
-    def __init__(self, n_features=64, in_size=128):
+    def __init__(self, in_channels=3, in_size=128, n_features=64):
         super().__init__()
 
+        self.in_channels = in_channels
+        self.in_size = in_size
         self.n_features = n_features
-        self.in_size = 128
 
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(3, self.n_features, 3, padding=1)
@@ -102,9 +103,10 @@ class UNet_base(nn.Module):
 
 class UNet(nn.Module):
     """UNet with convolutions (stride=2) for downsampling and transpose convolutinos (stride=2) for upsampling."""
-    def __init__(self, n_features=64):
+    def __init__(self, in_channels=3, n_features=64):
         super().__init__()
-        
+
+        self.in_Channels = in_channels
         self.n_features = n_features
 
         # encoder (downsampling)
