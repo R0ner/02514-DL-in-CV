@@ -5,31 +5,35 @@ import torch.nn.functional as F
 
 class EncDec(nn.Module):
 
-    def __init__(self):
+    def __init__(self, in_channels=3, n_features=64, in_size=128):
         super().__init__()
 
+        self.in_channels = in_channels
+        self.n_features = n_features
+        self.in_size = in_size
+
         # encoder (downsampling)
-        self.enc_conv0 = nn.Conv2d(3, 64, 3, padding=1)
-        self.pool0 = nn.MaxPool2d(2, 2)  # 128 -> 64
-        self.enc_conv1 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool1 = nn.MaxPool2d(2, 2)  # 64 -> 32
-        self.enc_conv2 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool2 = nn.MaxPool2d(2, 2)  # 32 -> 16
-        self.enc_conv3 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool3 = nn.MaxPool2d(2, 2)  # 16 -> 8
+        self.enc_conv0 = nn.Conv2d(self.in_channels, self.n_features, 3, padding=1)
+        self.pool0 = nn.MaxPool2d(2, 2)  # in_size -> in_size // 2
+        self.enc_conv1 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool1 = nn.MaxPool2d(2, 2)  # in_size // 2 -> in_size // 4
+        self.enc_conv2 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool2 = nn.MaxPool2d(2, 2)  # in_size // 4 -> in_size // 8
+        self.enc_conv3 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool3 = nn.MaxPool2d(2, 2)  # in_size // 8 -> in_size // 16
 
         # bottleneck
-        self.bottleneck_conv = nn.Conv2d(64, 64, 3, padding=1)
+        self.bottleneck_conv = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
 
         # decoder (upsampling)
-        self.upsample0 = nn.Upsample(16)  # 8 -> 16
-        self.dec_conv0 = nn.Conv2d(64, 64, 3, padding=1)
-        self.upsample1 = nn.Upsample(32)  # 16 -> 32
-        self.dec_conv1 = nn.Conv2d(64, 64, 3, padding=1)
-        self.upsample2 = nn.Upsample(64)  # 32 -> 64
-        self.dec_conv2 = nn.Conv2d(64, 64, 3, padding=1)
-        self.upsample3 = nn.Upsample(128)  # 64 -> 128
-        self.dec_conv3 = nn.Conv2d(64, 1, 3, padding=1)
+        self.upsample0 = nn.Upsample(self.in_size // 8)  # in_size // 16 -> in_size // 8
+        self.dec_conv0 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.upsample1 = nn.Upsample(self.in_size // 4)  # in_size // 8 -> in_size // 4
+        self.dec_conv1 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.upsample2 = nn.Upsample(self.in_size // 2)  # in_size // 4 -> in_size // 2
+        self.dec_conv2 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.upsample3 = nn.Upsample(self.in_size)  # in_size // 2 -> in_size
+        self.dec_conv3 = nn.Conv2d(self.n_features, 1, 3, padding=1)
 
     def forward(self, x):
         # encoder
@@ -48,33 +52,36 @@ class EncDec(nn.Module):
         d3 = self.dec_conv3(self.upsample3(d2))  # no activation
         return d3
 
-class UNet(nn.Module):
-
-    def __init__(self):
+class UNet_base(nn.Module):
+    """Original UNet implementation with maxpooling and upsampling."""
+    def __init__(self, n_features=64, in_size=128):
         super().__init__()
 
+        self.n_features = n_features
+        self.in_size = 128
+
         # encoder (downsampling)
-        self.enc_conv0 = nn.Conv2d(3, 64, 3, padding=1)
-        self.pool0 = nn.MaxPool2d(2, 2)  # 128 -> 64
-        self.enc_conv1 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool1 = nn.MaxPool2d(2, 2)  # 64 -> 32
-        self.enc_conv2 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool2 = nn.MaxPool2d(2, 2)  # 32 -> 16
-        self.enc_conv3 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool3 = nn.MaxPool2d(2, 2)  # 16 -> 8
+        self.enc_conv0 = nn.Conv2d(3, self.n_features, 3, padding=1)
+        self.pool0 = nn.MaxPool2d(2, 2) # in_size -> in_size // 2
+        self.enc_conv1 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool1 = nn.MaxPool2d(2, 2)  # in_size // 2 -> in_size // 4
+        self.enc_conv2 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool2 = nn.MaxPool2d(2, 2)  # in_size // 4 -> in_size // 8
+        self.enc_conv3 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool3 = nn.MaxPool2d(2, 2)  # in_size // 8 -> in_size // 16
 
         # bottleneck
-        self.bottleneck_conv = nn.Conv2d(64, 64, 3, padding=1)
+        self.bottleneck_conv = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
 
         # decoder (upsampling)
-        self.upsample0 = nn.Upsample(16)  # 8 -> 16
-        self.dec_conv0 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample1 = nn.Upsample(32)  # 16 -> 32
-        self.dec_conv1 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample2 = nn.Upsample(64)  # 32 -> 64
-        self.dec_conv2 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample3 = nn.Upsample(128)  # 64 -> 128
-        self.dec_conv3 = nn.Conv2d(128, 1, 3, padding=1)
+        self.upsample0 = nn.Upsample(self.in_size // 8)  # in_size // 16 -> in_size // 8
+        self.dec_conv0 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample1 = nn.Upsample(self.in_size // 4)  # in_size // 8 -> in_size // 4
+        self.dec_conv1 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample2 = nn.Upsample(self.in_size // 2)  # in_size // 4 -> in_size // 2
+        self.dec_conv2 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample3 = nn.Upsample(self.in_size)  # in_size // 2 -> in_size
+        self.dec_conv3 = nn.Conv2d(2 * self.n_features, 1, 3, padding=1)
 
     def forward(self, x):
         # encoder
@@ -93,33 +100,35 @@ class UNet(nn.Module):
         d3 = self.dec_conv3(torch.cat([self.upsample3(d2), e0], 1))  # no activation
         return d3
 
-class UNet2(nn.Module):
-
-    def __init__(self):
+class UNet(nn.Module):
+    """UNet with convolutions (stride=2) for downsampling and transpose convolutinos (stride=2) for upsampling."""
+    def __init__(self, n_features=64):
         super().__init__()
+        
+        self.n_features = n_features
 
         # encoder (downsampling)
-        self.enc_conv0 = nn.Conv2d(3, 64, 3, padding=1)
-        self.pool0 = nn.Conv2d(64, 64, 3, stride=2, padding=1)  # 128 -> 64
-        self.enc_conv1 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool1 = nn.Conv2d(64, 64, 3, stride=2, padding=1)  # 64 -> 32
-        self.enc_conv2 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool2 = nn.Conv2d(64, 64, 3, stride=2, padding=1)  # 32 -> 16
-        self.enc_conv3 = nn.Conv2d(64, 64, 3, padding=1)
-        self.pool3 = nn.Conv2d(64, 64, 3, stride=2, padding=1)  # 16 -> 8
+        self.enc_conv0 = nn.Conv2d(3, self.n_features, 3, padding=1)
+        self.pool0 = nn.Conv2d(self.n_features, self.n_features, 3, stride=2, padding=1)  # 128 -> self.n_features
+        self.enc_conv1 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool1 = nn.Conv2d(self.n_features, self.n_features, 3, stride=2, padding=1)  # self.n_features -> 32
+        self.enc_conv2 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool2 = nn.Conv2d(self.n_features, self.n_features, 3, stride=2, padding=1)  # 32 -> 16
+        self.enc_conv3 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
+        self.pool3 = nn.Conv2d(self.n_features, self.n_features, 3, stride=2, padding=1)  # 16 -> 8
 
         # bottleneck
-        self.bottleneck_conv = nn.Conv2d(64, 64, 3, padding=1)
+        self.bottleneck_conv = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
 
         # decoder (upsampling)
-        self.upsample0 = nn.ConvTranspose2d(64, 64, 3, stride=2, padding=1, output_padding=1)  # 8 -> 16
-        self.dec_conv0 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample1 = nn.ConvTranspose2d(64, 64, 3, stride=2, padding=1, output_padding=1)  # 16 -> 32
-        self.dec_conv1 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample2 = nn.ConvTranspose2d(64, 64, 3, stride=2, padding=1, output_padding=1) # 32 -> 64
-        self.dec_conv2 = nn.Conv2d(128, 64, 3, padding=1)
-        self.upsample3 = nn.ConvTranspose2d(64, 64, 3, stride=2, padding=1, output_padding=1)  # 64 -> 128
-        self.dec_conv3 = nn.Conv2d(128, 1, 3, padding=1)
+        self.upsample0 = nn.ConvTranspose2d(self.n_features, self.n_features, 3, stride=2, padding=1, output_padding=1)  # 8 -> 16
+        self.dec_conv0 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample1 = nn.ConvTranspose2d(self.n_features, self.n_features, 3, stride=2, padding=1, output_padding=1)  # 16 -> 32
+        self.dec_conv1 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample2 = nn.ConvTranspose2d(self.n_features, self.n_features, 3, stride=2, padding=1, output_padding=1) # 32 -> self.n_features
+        self.dec_conv2 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
+        self.upsample3 = nn.ConvTranspose2d(self.n_features, self.n_features, 3, stride=2, padding=1, output_padding=1)  # self.n_features -> 128
+        self.dec_conv3 = nn.Conv2d(2 * self.n_features, 1, 3, padding=1)
 
     def forward(self, x):
         # encoder
