@@ -72,7 +72,7 @@ print(f'Using device:\t{device}')
 print('Getting data...')
 train_dataset, val_dataset, train_loader, val_loader = get_dataloaders(batch_size, num_workers=num_workers, data_augmentation=data_augmentation)
 
-def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
+def train_old(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
 
     def loss_fun(output, target):
         # NOTE: Binary cross entropy
@@ -165,6 +165,41 @@ def train(model, optimizer, scheduler=None, earlystopper=None, num_epochs=10):
                 break
     return out_dict
 
+def train(model, opt, loss_fn, epochs, train_loader, test_loader):
+    X_test, Y_test = next(iter(test_loader))
+
+    for epoch in range(epochs):
+        tic = time()
+        print('* Epoch %d/%d' % (epoch+1, epochs))
+
+        avg_loss = 0
+        model.train()  # train mode
+        for X_batch, Y_batch in train_loader:
+            X_batch = X_batch.to(device)
+            Y_batch = Y_batch.to(device)
+
+            # set parameter gradients to zero
+            opt.zero_grad()
+
+            # forward
+            Y_pred = model(X_batch)
+            loss = loss_fn(Y_batch, Y_pred)  # forward-pass
+            loss.backward()  # backward-pass
+            opt.step()  # update weights
+
+            # calculate metrics to show the user
+            avg_loss += loss / len(train_loader)
+        toc = time()
+        print(' - loss: %f' % avg_loss)
+
+        # show intermediate results
+        model.eval()  # testing mode
+        Y_hat = F.sigmoid(model(X_test.to(device))).detach().cpu()
+        #Loop through and call eval functions on each image separately
+        #Save metrics into lists (append them)
+        #After all loops, throw lists into conf calculater from evals too
+        #Print output and put it into table ;)
+        
 # Get model
 in_size = (64, 64) # h, w
 if model_type.lower() == 'resnet':
