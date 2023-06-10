@@ -188,7 +188,7 @@ def train(
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
 
         print(
-            f"Epoch: {epoch}, Loss - Train: {np.mean(train_loss):.3f}, Validation: {avg_val_loss:.3f}, "
+            f"Epoch: {epoch}, Loss - Train: {avg_train_loss:.3f}, Validation: {avg_val_loss:.3f}, "
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
@@ -265,7 +265,7 @@ def main():
     model = get_model(
         args.model_type,
         in_channels=3,
-        in_size=128,
+        in_size=(584, 565), #TODO: in_size is hardcoded for Retina, should probably depend on data type instead.
         n_features=args.n_features,
     )
     loss_func = get_loss_func(args.loss_function)
@@ -309,7 +309,7 @@ def main():
     )
 
     # Evaluate model on test set
-    final_metrics = evaluate_segmentation_model(model, test_loader)
+    #final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
 
     # Save stats and checkpoint
     save_dir = f"models/{args.model_type.lower()}"
@@ -322,14 +322,14 @@ def main():
         os.mkdir(save_dir + "/stats")
 
     # Model name for saving stats and checkpoint
-    model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optim_type}_{args.loss_fun_type}"
+    model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
 
     # Save used hyperparamters
     out_dict["model"] = args.model_type.lower()
-    out_dict["model_name"] = args.model_name
+    out_dict["model_name"] = model_name
     out_dict["data_augmentation"] = args.data_augmentation
-    out_dict["optimizer"] = args.optim_type.upper()
-    out_dict["loss_function"] = args.loss_fun_type
+    out_dict["optimizer"] = args.optimizer_type.upper()
+    out_dict["loss_function"] = args.loss_function
 
     # Checkpoint
     save_path = f"{save_dir}/checkpoints/{model_name}.pt"
@@ -343,11 +343,11 @@ def main():
     with open(save_path, "w") as f:
         json.dump(out_dict, f, indent=6)
 
-    save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
-    print(f"Saving test stats to:\t{save_path}")
+    #save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
+    #print(f"Saving test stats to:\t{save_path}")
 
-    with open(save_path, "w") as f:
-        json.dump(final_metrics, f, indent=6)
+    #with open(save_path, "w") as f:
+    #    json.dump(final_metrics, f, indent=6)
 
 
 if __name__ == "__main__":
