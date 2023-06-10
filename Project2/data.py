@@ -228,7 +228,7 @@ def get_skinlesion(batch_size: int, num_workers: int = 8, data_augmentation: boo
     else:
         train_dataset = SkinLesion(train=True, transform=transform, data_indices=random_idxs)
     
-    test_dataset = SkinLesion(train=False, transform=transform, data_indices=random_idx)
+    test_dataset = SkinLesion(train=False, transform=transform, data_indices=random_idxs)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
