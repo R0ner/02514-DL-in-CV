@@ -224,11 +224,11 @@ def get_skinlesion(batch_size: int, num_workers: int = 8, data_augmentation: boo
     random.seed(42)
     random_idxs = random.sample(range(200), 200)
     if data_augmentation:
-        train_dataset = SkinLesion(train=True, transform, data_indices=random_idxs)
+        train_dataset = SkinLesion(train=True, transform=transform, data_indices=random_idxs)
     else:
-        train_dataset = SkinLesion(train=True, transform, data_indices=random_idxs)
+        train_dataset = SkinLesion(train=True, transform=transform, data_indices=random_idxs)
     
-    test_dataset = SkinLesion(train=False, transform, data_indices=random_idx)
+    test_dataset = SkinLesion(train=False, transform=transform, data_indices=random_idx)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
