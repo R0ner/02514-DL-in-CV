@@ -58,6 +58,53 @@ class RetinaSet(torch.utils.data.Dataset):
         Y = FT.to_tensor(label)
         return X, Y
 
+
+class SkinLesion(torch.utils.data.Dataset):
+    def __init__(self, train, transform, data_indices, data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
+        'Initialization'
+        self.image_paths = []
+        self.label_paths = []
+        self.data_path = data_path
+        self.transform = transform
+        #data_path = os.path.join(data_path, 'training' if train else 'test')
+        for p in Path(data_path).glob('IMD*'):
+            self.p_id = p.name
+            
+            for f1 in Path(os.path.join(self.data_path,self.p_id)).glob('*_Dermoscopic_Image'):
+                self.img_path = sorted(glob.glob(os.path.join(f1, '*.bmp'))) # base image
+                self.image_paths.extend(self.img_path)
+                
+            for f2 in Path(os.path.join(self.data_path,self.p_id)).glob('*_lesion'):
+                self.lbl_path = sorted(glob.glob(os.path.join(f2,'*.bmp'))) # mask
+                self.label_paths.extend(self.lbl_path)
+
+            for f3 in Path(os.path.join(self.data_path,self.p_id)).glob('*_roi'):
+                self.roi_paths = sorted(glob.glob(os.path.join(f3,'*.bmp'))) # Multiclass segmentation if time
+
+        #Redefine
+        
+        if train:
+            self.image_paths = [self.image_paths[i] for i in data_indices[0:160]]
+            self.label_paths = [self.label_paths[i] for i in data_indices[0:160]]
+        else:
+            self.image_paths = [self.image_paths[i] for i in data_indices[160:200]]
+            self.label_paths = [self.label_paths[i] for i in data_indices[160:200]]
+    def __len__(self):
+        'Returns the total number of samples'
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        'Generates one sample of data'
+        image_path = self.image_paths[idx]
+        label_path = self.label_paths[idx]
+        
+        image = Image.open(image_path)
+        label = Image.open(label_path)
+        Y = self.transform(label)
+        X = self.transform(image)
+        return X, Y
+
+
 class SegRandomHorizontalFlip(transforms.RandomHorizontalFlip):
     def __init__(self, p=0.5):
         super().__init__(p)
@@ -73,6 +120,7 @@ class SegRandomHorizontalFlip(transforms.RandomHorizontalFlip):
         if torch.rand(1) < self.p:
             return [FT.hflip(img) for img in imgs]
         return imgs
+
 
 class SegRandomRotation(transforms.RandomRotation):
     def __init__(self, degrees, interpolation=InterpolationMode.NEAREST, expand=False, center=None, fill=0):
@@ -148,54 +196,6 @@ def get_retina(batch_size: int, num_workers: int = 8, data_augmentation: bool = 
                             num_workers=num_workers)
     
     return train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader
-
-
-
-
-class SkinLesion(torch.utils.data.Dataset):
-    def __init__(self, train, transform, data_indices, data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
-        'Initialization'
-        self.image_paths = []
-        self.label_paths = []
-        self.data_path = data_path
-        self.transform = transform
-        #data_path = os.path.join(data_path, 'training' if train else 'test')
-        for p in Path(data_path).glob('IMD*'):
-            self.p_id = p.name
-            
-            for f1 in Path(os.path.join(self.data_path,self.p_id)).glob('*_Dermoscopic_Image'):
-                self.img_path = sorted(glob.glob(os.path.join(f1, '*.bmp'))) # base image
-                self.image_paths.extend(self.img_path)
-                
-            for f2 in Path(os.path.join(self.data_path,self.p_id)).glob('*_lesion'):
-                self.lbl_path = sorted(glob.glob(os.path.join(f2,'*.bmp'))) # mask
-                self.label_paths.extend(self.lbl_path)
-
-            for f3 in Path(os.path.join(self.data_path,self.p_id)).glob('*_roi'):
-                self.roi_paths = sorted(glob.glob(os.path.join(f3,'*.bmp'))) # Multiclass segmentation if time
-
-        #Redefine
-        
-        if train:
-            self.image_paths = [self.image_paths[i] for i in data_indices[0:160]]
-            self.label_paths = [self.label_paths[i] for i in data_indices[0:160]]
-        else:
-            self.image_paths = [self.image_paths[i] for i in data_indices[160:200]]
-            self.label_paths = [self.label_paths[i] for i in data_indices[160:200]]
-    def __len__(self):
-        'Returns the total number of samples'
-        return len(self.image_paths)
-
-    def __getitem__(self, idx):
-        'Generates one sample of data'
-        image_path = self.image_paths[idx]
-        label_path = self.label_paths[idx]
-        
-        image = Image.open(image_path)
-        label = Image.open(label_path)
-        Y = self.transform(label)
-        X = self.transform(image)
-        return X, Y
 
 
 def get_skinlesion(batch_size: int, num_workers: int = 8, data_augmentation: bool = True):
