@@ -155,7 +155,6 @@ def train(
     for epoch in range(num_epochs):
         print("* Epoch %d/%d" % (epoch + 1, num_epochs))
         # Train
-        avg_train_loss = 0
         model.train()
         train_loss = []
         for data, target in tqdm(train_loader):
@@ -172,7 +171,6 @@ def train(
 
         # Validate
         model.eval()
-        avg_val_loss = 0
         val_loss = []
         for data, target in val_loader:
             data, target = data.to(device), target.to(device)
