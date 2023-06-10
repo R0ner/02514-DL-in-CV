@@ -12,10 +12,9 @@ import numpy as np
 from pathlib import Path
 import random
 
-
 # Standardization is done according to training set (mean and std. for the training set)
 standardize_retina = transforms.Normalize([0.4723, 0.3084, 0.1978],
-                                    [0.3128, 0.2007, 0.1210])
+                                          [0.3128, 0.2007, 0.1210])
 standardize_retina_inv = transforms.Compose([
     transforms.Normalize([0, 0, 0], [1 / 0.3128, 1 / 0.2007, 1 / 0.1210]),
     transforms.Normalize([-0.4723, -0.3084, -0.1978], [1, 1, 1])
@@ -23,12 +22,12 @@ standardize_retina_inv = transforms.Compose([
 
 # TODO: Not done for the skinlesion data set...
 # Standardization is done according to training set (mean and std. for the training set)
-standardize_skinlesion = transforms.Normalize([0, 0, 0],
-                                    [1, 1, 1])
+standardize_skinlesion = transforms.Normalize([0, 0, 0], [1, 1, 1])
 standardize_skinlesion_inv = transforms.Compose([
     transforms.Normalize([0, 0, 0], [1 / 1, 1 / 1, 1 / 1]),
     transforms.Normalize([0, 0, 0], [1, 1, 1])
 ])
+
 
 class RetinaSet(torch.utils.data.Dataset):
     """Dataset class for the Retina dataset"""
@@ -213,19 +212,23 @@ class SegRandomRotation(transforms.RandomRotation):
 def get_retina(batch_size: int,
                num_workers: int = 8,
                data_augmentation: bool = True):
-    
-    transform = transforms.Compose([transforms.ToTensor(), standardize_retina])
 
-    # Shared transforms
-    transform_shared = transforms.Compose([
+    # Image transforms
+    transform = transforms.Compose([transforms.ToTensor(), standardize_retina])
+    transform_augment = transforms.Compose([
+        transforms.RandomApply([transforms.ColorJitter(.3, .5, .1, .02)],
+                               p=.9),
+        transform
+    ])
+
+    # Shared transforms between label and image.
+    transform_augment_shared = transforms.Compose([
         SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([SegRandomRotation(180)], p=0.75),
-        # transforms.RandomApply([transforms.ColorJitter(.2, .2, .1, .05)], p=0.1),
-        # transform
+        transforms.RandomApply([SegRandomRotation(180)], p=0.75)
     ])
 
     if data_augmentation:
-        train_dataset = RetinaSet('train', transform, transform_shared)
+        train_dataset = RetinaSet('train', transform_augment, transform_augment_shared)
     else:
         train_dataset = RetinaSet('train', transform)
 
@@ -252,7 +255,8 @@ def get_skinlesion(batch_size: int,
                    num_workers: int = 8,
                    data_augmentation: bool = True):
 
-    transform = transforms.Compose([transforms.ToTensor(), standardize_skinlesion])
+    transform = transforms.Compose(
+        [transforms.ToTensor(), standardize_skinlesion])
 
     # Shared transforms
     transform_shared = transforms.Compose([
