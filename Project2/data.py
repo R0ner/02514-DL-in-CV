@@ -13,6 +13,23 @@ from pathlib import Path
 import random
 
 
+# Standardization is done according to training set (mean and std. for the training set)
+standardize_retina = transforms.Normalize([0.4723, 0.3084, 0.1978],
+                                    [0.3128, 0.2007, 0.1210])
+standardize_retina_inv = transforms.Compose([
+    transforms.Normalize([0, 0, 0], [1 / 0.3128, 1 / 0.2007, 1 / 0.1210]),
+    transforms.Normalize([-0.4723, -0.3084, -0.1978], [1, 1, 1])
+])
+
+# TODO: Not done for the skinlesion data set...
+# Standardization is done according to training set (mean and std. for the training set)
+standardize_skinlesion = transforms.Normalize([0, 0, 0],
+                                    [1, 1, 1])
+standardize_skinlesion_inv = transforms.Compose([
+    transforms.Normalize([0, 0, 0], [1 / 1, 1 / 1, 1 / 1]),
+    transforms.Normalize([0, 0, 0], [1, 1, 1])
+])
+
 class RetinaSet(torch.utils.data.Dataset):
     """Dataset class for the Retina dataset"""
 
@@ -196,16 +213,8 @@ class SegRandomRotation(transforms.RandomRotation):
 def get_retina(batch_size: int,
                num_workers: int = 8,
                data_augmentation: bool = True):
-
-    # Standardization is done according to training set (mean and std. for the training set)
-    standardize = transforms.Normalize([0.4723, 0.3084, 0.1978],
-                                       [0.3128, 0.2007, 0.1210])
-    standardize_inv = transforms.Compose([
-        transforms.Normalize([0, 0, 0], [1 / 0.3128, 1 / 0.2007, 1 / 0.1210]),
-        transforms.Normalize([-0.4723, -0.3084, -0.1978], [1, 1, 1])
-    ])
-
-    transform = transforms.Compose([transforms.ToTensor(), standardize])
+    
+    transform = transforms.Compose([transforms.ToTensor(), standardize_retina])
 
     # Shared transforms
     transform_shared = transforms.Compose([
@@ -242,16 +251,8 @@ def get_retina(batch_size: int,
 def get_skinlesion(batch_size: int,
                    num_workers: int = 8,
                    data_augmentation: bool = True):
-    # TODO: Not done for the skinlesion data set...
-    # Standardization is done according to training set (mean and std. for the training set)
-    standardize = transforms.Normalize([0.4723, 0.3084, 0.1978],
-                                       [0.3128, 0.2007, 0.1210])
-    standardize_inv = transforms.Compose([
-        transforms.Normalize([0, 0, 0], [1 / 0.3128, 1 / 0.2007, 1 / 0.1210]),
-        transforms.Normalize([-0.4723, -0.3084, -0.1978], [1, 1, 1])
-    ])
 
-    transform = transforms.Compose([transforms.ToTensor(), standardize])
+    transform = transforms.Compose([transforms.ToTensor(), standardize_skinlesion])
 
     # Shared transforms
     transform_shared = transforms.Compose([
