@@ -1,17 +1,14 @@
 import glob
 import os
+import random
+from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
 import torchvision.transforms.functional as FT
 from PIL import Image
-from torchvision.transforms.functional import InterpolationMode
-import numpy as np
-from pathlib import Path
-import random
-from collections.abc import Sequence
+from torch.utils.data import DataLoader
+import segmentation_transforms as ST
 
 # Standardization is done according to training set (mean and std. for the training set)
 standardize_retina = transforms.Normalize([0.4723, 0.3084, 0.1978],
@@ -96,7 +93,6 @@ class SkinLesion(torch.utils.data.Dataset):
                  train,
                  transform,
                  transform_shared,
-                 data_indices,
                  data_path='/dtu/datasets1/02514/PH2_Dataset_images'
                 ):
         'Initialization'
@@ -105,6 +101,10 @@ class SkinLesion(torch.utils.data.Dataset):
         self.data_path = data_path
         self.transform = transform
         self.transform_shared = transform_shared
+
+        # Generate indices for data splits.
+        random.seed(42)
+        self.data_indices = random.sample(range(200), 200)
         
         for p in Path(data_path).glob('IMD*'):
             self.p_id = p.name
@@ -130,24 +130,24 @@ class SkinLesion(torch.utils.data.Dataset):
         ### Split is 80/10/10 percent. Randomized indexes in get_skinlesion.
         if train == 'train':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[0:160]
+                self.image_paths[i] for i in self.data_indices[0:160]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[0:160]
+                self.label_paths[i] for i in self.data_indices[0:160]
             ]
         elif train == 'val':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[160:180]
+                self.image_paths[i] for i in self.data_indices[160:180]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[160:180]
+                self.label_paths[i] for i in self.data_indices[160:180]
             ]
         elif train == 'test':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[180:200]
+                self.image_paths[i] for i in self.data_indices[180:200]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[180:200]
+                self.label_paths[i] for i in self.data_indices[180:200]
             ]
 
     def __len__(self):
@@ -163,103 +163,11 @@ class SkinLesion(torch.utils.data.Dataset):
         label = Image.open(label_path)
         
         if self.transform_shared is not None:
-            image, label = self.transform_shared(image), self.transform_shared(label)
-        #print(f"\n\n Resized image:\t {image} \n\n")
-        #print(f"\n\n Resized label:\t {label} \n\n")
-        Y = FT.to_tensor(label[0])
-        X = self.transform(image[0])
+            image, label = self.transform_shared([image, label])
+
+        Y = FT.to_tensor(label)
+        X = self.transform(image)
         return X, Y
-
-    
-class Resize(torch.nn.Module):
-    
-    def __init__(self, size, interpolation=InterpolationMode.BILINEAR, max_size=None, antialias="warn"):
-        super(Resize, self).__init__()
-        if not isinstance(size, (int, Sequence)):
-            raise TypeError(f"Size should be int or sequence. Got {type(size)}")
-        if isinstance(size, Sequence) and len(size) not in (1, 2):
-            raise ValueError("If size is a sequence, it should have 1 or 2 values")
-        self.size = size
-        self.max_size = max_size
-
-        if isinstance(interpolation, int):
-            interpolation = _interpolation_modes_from_int(interpolation)
-
-        self.interpolation = interpolation
-        self.antialias = antialias
-
-    def forward(self, img):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be scaled.
-
-        Returns:
-            PIL Image or Tensor: Rescaled image.
-        """
-        return [
-            FT.resize(img, self.size, self.interpolation, self.max_size, self.antialias)
-        ]
-
-
-    def __repr__(self) -> str:
-        detail = f"(size={self.size}, interpolation={self.interpolation.value}, max_size={self.max_size}, antialias={self.antialias})"
-        return f"{self.__class__.__name__}{detail}"
-
-
-
-class SegRandomHorizontalFlip(transforms.RandomHorizontalFlip):
-
-    def __init__(self, p=0.5):
-        super().__init__(p)
-
-    def forward(self, imgs):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be flipped.
-
-        Returns:
-            PIL Image or Tensor: Randomly flipped image.
-        """
-        if torch.rand(1) < self.p:
-            return [FT.hflip(img) for img in imgs]
-        return imgs
-
-
-class SegRandomRotation(transforms.RandomRotation):
-
-    def __init__(self,
-                 degrees,
-                 interpolation=InterpolationMode.NEAREST,
-                 expand=False,
-                 center=None,
-                 fill=0):
-        super().__init__(degrees, interpolation, expand, center, fill)
-
-    def forward(self, imgs):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be rotated.
-
-        Returns:
-            PIL Image or Tensor: Rotated image.
-        """
-        fill = self.fill
-        fills = []
-        for img in imgs:
-            channels, _, _ = FT.get_dimensions(img)
-            if isinstance(img, torch.Tensor):
-                if isinstance(fill, (int, float)):
-                    fill = [float(fill)] * channels
-                else:
-                    fill = [float(f) for f in fill]
-            fills.append(fill)
-
-        angle = self.get_params(self.degrees)
-
-        return [
-            FT.rotate(img, angle, self.interpolation, self.expand, self.center,
-                      fill) for img in imgs
-        ]
 
 
 def get_retina(batch_size: int,
@@ -276,8 +184,8 @@ def get_retina(batch_size: int,
 
     # Shared transforms between label and image.
     transform_augment_shared = transforms.Compose([
-        SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([SegRandomRotation(180)], p=0.75)
+        ST.SegRandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75)
     ])
 
     if data_augmentation:
@@ -308,25 +216,33 @@ def get_skinlesion(batch_size: int,
                    num_workers: int = 8,
                    data_augmentation: bool = True):
 
-    transform = transforms.Compose(
-        [transforms.ToTensor(), standardize_skinlesion])
-
-    # Shared transforms
-    transform_shared = transforms.Compose([Resize(size=(576,767)),
-        SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([SegRandomRotation(180)], p=0.75),
-        # transforms.RandomApply([transforms.ColorJitter(.2, .2, .1, .05)], p=0.1),
-        # transform
+    # Image transforms
+    transform = transforms.Compose([transforms.ToTensor(), standardize_skinlesion])
+    transform_augment = transforms.Compose([
+        transforms.RandomApply([transforms.ColorJitter(.3, .5, .1, .02)],
+                               p=.9),
+        transform
     ])
-    random.seed(42)
-    random_idxs = random.sample(range(200), 200)
-    if data_augmentation:
-        train_dataset = SkinLesion('train', transform, transform_shared, data_indices=random_idxs)
-    else:
-        train_dataset = SkinLesion('train', transform, transform_shared, data_indices=random_idxs)
 
-    val_dataset = SkinLesion('val', transform, transform_shared, data_indices=random_idxs)
-    test_dataset = SkinLesion('test', transform, transform_shared, data_indices=random_idxs)
+    # Shared transforms between label and image.
+    transform_shared = transforms.Compose([
+        ST.SegResize(size=(576,767))
+    ])
+    transform_augment_shared = transforms.Compose([
+        ST.SegRandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75),
+        transforms.RandomApply([ST.SegElasticTransform()], p=1),
+        transform_shared
+    ])
+
+    if data_augmentation:
+        train_dataset = SkinLesion('train', transform_augment, transform_augment_shared)
+    else:
+        train_dataset = SkinLesion('train', transform, transform_shared)
+
+    
+    val_dataset = SkinLesion('val', transform, transform_shared)
+    test_dataset = SkinLesion('test', transform, transform_shared)
     
 
     train_loader = DataLoader(train_dataset,
