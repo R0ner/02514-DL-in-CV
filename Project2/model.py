@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class CNN(nn.Module):
 
-    def __init__(self, in_channels=3, in_size=128, n_features=64):
+    def __init__(self, in_channels=3, in_size=(584, 565), n_features=64):
         super().__init__()
 
         self.in_channels = in_channels
@@ -26,13 +26,13 @@ class CNN(nn.Module):
         self.bottleneck_conv = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
 
         # decoder (upsampling)
-        self.upsample0 = nn.Upsample(self.in_size // 8)  # in_size // 16 -> in_size // 8
+        self.upsample0 = nn.Upsample((self.in_size[0] // 8, self.in_size[1] // 8)) # in_size // 16 -> in_size // 8
         self.dec_conv0 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
-        self.upsample1 = nn.Upsample(self.in_size // 4)  # in_size // 8 -> in_size // 4
+        self.upsample1 = nn.Upsample((self.in_size[0] // 4, self.in_size[1] // 4)) # in_size // 8 -> in_size // 4
         self.dec_conv1 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
-        self.upsample2 = nn.Upsample(self.in_size // 2)  # in_size // 4 -> in_size // 2
+        self.upsample2 = nn.Upsample((self.in_size[0] // 2, self.in_size[1] // 2)) # in_size // 4 -> in_size // 2
         self.dec_conv2 = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
-        self.upsample3 = nn.Upsample(self.in_size)  # in_size // 2 -> in_size
+        self.upsample3 = nn.Upsample(self.in_size) # in_size // 2 -> in_size
         self.dec_conv3 = nn.Conv2d(self.n_features, 1, 3, padding=1)
 
     def forward(self, x):
