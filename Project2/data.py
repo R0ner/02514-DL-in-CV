@@ -22,10 +22,11 @@ standardize_retina_inv = transforms.Compose([
 
 # TODO: Not done for the skinlesion data set...
 # Standardization is done according to training set (mean and std. for the training set)
-standardize_skinlesion = transforms.Normalize([0, 0, 0], [1, 1, 1])
+standardize_skinlesion = transforms.Normalize([0.7508, 0.5745, 0.4853],
+                                              [0.1632, 0.1582, 0.1579])
 standardize_skinlesion_inv = transforms.Compose([
-    transforms.Normalize([0, 0, 0], [1 / 1, 1 / 1, 1 / 1]),
-    transforms.Normalize([0, 0, 0], [1, 1, 1])
+    transforms.Normalize([0, 0, 0], [1 / 0.1632, 1 /0.1582,  1 / 0.1579]),
+    transforms.Normalize([-0.7508, -0.5745, -0.4853], [1, 1, 1])
 ])
 
 
@@ -100,7 +101,7 @@ class SkinLesion(torch.utils.data.Dataset):
         self.label_paths = []
         self.data_path = data_path
         self.transform = transform
-        #data_path = os.path.join(data_path, 'training' if train else 'test')
+        
         for p in Path(data_path).glob('IMD*'):
             self.p_id = p.name
 
@@ -121,21 +122,28 @@ class SkinLesion(torch.utils.data.Dataset):
                 self.roi_paths = sorted(glob.glob(os.path.join(
                     f3, '*.bmp')))  # Multiclass segmentation if time
 
-        #Redefine
 
-        if train:
+        ### Split is 80/10/10 percent. Randomized indexes in get_skinlesion.
+        if train == 'train':
             self.image_paths = [
                 self.image_paths[i] for i in data_indices[0:160]
             ]
             self.label_paths = [
                 self.label_paths[i] for i in data_indices[0:160]
             ]
-        else:
+        elif train == 'val':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[160:200]
+                self.image_paths[i] for i in data_indices[160:180]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[160:200]
+                self.label_paths[i] for i in data_indices[160:180]
+            ]
+        elif train == 'test':
+            self.image_paths = [
+                self.image_paths[i] for i in data_indices[180:200]
+            ]
+            self.label_paths = [
+                self.label_paths[i] for i in data_indices[180:200]
             ]
 
     def __len__(self):
@@ -149,7 +157,7 @@ class SkinLesion(torch.utils.data.Dataset):
 
         image = Image.open(image_path)
         label = Image.open(label_path)
-        Y = self.transform(label)
+        Y = FT.to_tensor(label)
         X = self.transform(image)
         return X, Y
 
@@ -268,13 +276,19 @@ def get_skinlesion(batch_size: int,
     random.seed(42)
     random_idxs = random.sample(range(200), 200)
     if data_augmentation:
-        train_dataset = SkinLesion(True, transform, data_indices=random_idxs)
+        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
     else:
-        train_dataset = SkinLesion(True, transform, data_indices=random_idxs)
+        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
 
-    test_dataset = SkinLesion(False, transform, data_indices=random_idxs)
+    val_dataset = SkinLesion('val', transform, data_indices=random_idxs)
+    test_dataset = SkinLesion('test', transform, data_indices=random_idxs)
+    
 
     train_loader = DataLoader(train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=num_workers)
+    val_loader = DataLoader(val_dataset,
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=num_workers)
@@ -283,4 +297,4 @@ def get_skinlesion(batch_size: int,
                              shuffle=False,
                              num_workers=num_workers)
 
-    return train_dataset, test_dataset, train_loader, test_loader
+    return train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader
