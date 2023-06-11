@@ -11,6 +11,7 @@ from torchvision.transforms.functional import InterpolationMode
 import numpy as np
 from pathlib import Path
 import random
+from collections.abc import Sequence
 
 # Standardization is done according to training set (mean and std. for the training set)
 standardize_retina = transforms.Normalize([0.4723, 0.3084, 0.1978],
@@ -94,13 +95,16 @@ class SkinLesion(torch.utils.data.Dataset):
     def __init__(self,
                  train,
                  transform,
+                 transform_shared,
                  data_indices,
-                 data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
+                 data_path='/dtu/datasets1/02514/PH2_Dataset_images'
+                ):
         'Initialization'
         self.image_paths = []
         self.label_paths = []
         self.data_path = data_path
         self.transform = transform
+        self.transform_shared = transform_shared
         
         for p in Path(data_path).glob('IMD*'):
             self.p_id = p.name
@@ -157,9 +161,50 @@ class SkinLesion(torch.utils.data.Dataset):
 
         image = Image.open(image_path)
         label = Image.open(label_path)
-        Y = FT.to_tensor(label)
-        X = self.transform(image)
+        
+        if self.transform_shared is not None:
+            image, label = self.transform_shared(image), self.transform_shared(label)
+        #print(f"\n\n Resized image:\t {image} \n\n")
+        #print(f"\n\n Resized label:\t {label} \n\n")
+        Y = FT.to_tensor(label[0])
+        X = self.transform(image[0])
         return X, Y
+
+    
+class Resize(torch.nn.Module):
+    
+    def __init__(self, size, interpolation=InterpolationMode.BILINEAR, max_size=None, antialias="warn"):
+        super(Resize, self).__init__()
+        if not isinstance(size, (int, Sequence)):
+            raise TypeError(f"Size should be int or sequence. Got {type(size)}")
+        if isinstance(size, Sequence) and len(size) not in (1, 2):
+            raise ValueError("If size is a sequence, it should have 1 or 2 values")
+        self.size = size
+        self.max_size = max_size
+
+        if isinstance(interpolation, int):
+            interpolation = _interpolation_modes_from_int(interpolation)
+
+        self.interpolation = interpolation
+        self.antialias = antialias
+
+    def forward(self, img):
+        """
+        Args:
+            img (PIL Image or Tensor): Image to be scaled.
+
+        Returns:
+            PIL Image or Tensor: Rescaled image.
+        """
+        return [
+            FT.resize(img, self.size, self.interpolation, self.max_size, self.antialias)
+        ]
+
+
+    def __repr__(self) -> str:
+        detail = f"(size={self.size}, interpolation={self.interpolation.value}, max_size={self.max_size}, antialias={self.antialias})"
+        return f"{self.__class__.__name__}{detail}"
+
 
 
 class SegRandomHorizontalFlip(transforms.RandomHorizontalFlip):
@@ -267,7 +312,7 @@ def get_skinlesion(batch_size: int,
         [transforms.ToTensor(), standardize_skinlesion])
 
     # Shared transforms
-    transform_shared = transforms.Compose([
+    transform_shared = transforms.Compose([Resize(size=(576,767)),
         SegRandomHorizontalFlip(p=0.5),
         transforms.RandomApply([SegRandomRotation(180)], p=0.75),
         # transforms.RandomApply([transforms.ColorJitter(.2, .2, .1, .05)], p=0.1),
@@ -276,12 +321,12 @@ def get_skinlesion(batch_size: int,
     random.seed(42)
     random_idxs = random.sample(range(200), 200)
     if data_augmentation:
-        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
+        train_dataset = SkinLesion('train', transform, transform_shared, data_indices=random_idxs)
     else:
-        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
+        train_dataset = SkinLesion('train', transform, transform_shared, data_indices=random_idxs)
 
-    val_dataset = SkinLesion('val', transform, data_indices=random_idxs)
-    test_dataset = SkinLesion('test', transform, data_indices=random_idxs)
+    val_dataset = SkinLesion('val', transform, transform_shared, data_indices=random_idxs)
+    test_dataset = SkinLesion('test', transform, transform_shared, data_indices=random_idxs)
     
 
     train_loader = DataLoader(train_dataset,

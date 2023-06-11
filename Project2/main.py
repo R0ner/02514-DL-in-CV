@@ -260,12 +260,17 @@ def evaluate_segmentation_model(
 def main():
     args = set_args()
     print(args)
-
+    
     # Model setup
+    if args.data_choice.lower() == "skinlesion":
+        _in_size = (576, 767)
+    elif args.data_choice.lower() == "retina":
+        _in_size = (584, 565)
+    
     model = get_model(
         args.model_type,
         in_channels=3,
-        in_size=(584, 565), #TODO: in_size is hardcoded for Retina, should probably depend on data type instead.
+        in_size=_in_size, #TODO: in_size is hardcoded for Retina, should probably depend on data type instead.
         n_features=args.n_features,
     )
     loss_func = get_loss_func(args.loss_function)
@@ -275,7 +280,7 @@ def main():
     # Data loading
     print("Getting data...")
     if args.data_choice.lower() == "skinlesion":
-        _, _, train_loader, val_loader, test_loader = get_skinlesion(
+        _, _, _, train_loader, val_loader, test_loader = get_skinlesion(
             args.batch_size,
             num_workers=args.num_workers,
             data_augmentation=args.data_augmentation,
