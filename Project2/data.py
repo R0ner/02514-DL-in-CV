@@ -231,7 +231,6 @@ def get_skinlesion(batch_size: int,
     transform_augment_shared = transforms.Compose([
         ST.SegRandomHorizontalFlip(p=0.5),
         transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75),
-        transforms.RandomApply([ST.SegElasticTransform()], p=1),
         transform_shared
     ])
 
