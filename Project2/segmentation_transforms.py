@@ -1,6 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as FT
+from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
 
@@ -76,3 +77,13 @@ class SegRandomRotation(transforms.RandomRotation):
             FT.rotate(img, angle, self.interpolation, self.expand, self.center,
                       fill) for img in imgs
         ]
+
+class SegElasticTransform(transforms.ElasticTransform):
+    def __init__(self, alpha=50.0, sigma=5.0, interpolation=Image.BILINEAR, fill=0):
+        super().__init__(alpha, sigma, interpolation, fill)
+    
+    def forward(self, imgs):
+        _, height, width = FT.get_dimensions(imgs[0])
+        displacement = self.get_params(self.alpha, self.sigma, [height, width])
+
+        return [FT.to_pil_image(FT.elastic_transform(FT.to_tensor(img), displacement, self.interpolation, self.fill)) for img in imgs]

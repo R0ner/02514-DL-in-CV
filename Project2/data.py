@@ -185,7 +185,8 @@ def get_retina(batch_size: int,
     # Shared transforms between label and image.
     transform_augment_shared = transforms.Compose([
         ST.SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75)
+        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75),
+        transforms.RandomApply([ST.SegElasticTransform(alpha=200.0, sigma=7.5)], p=.1)
     ])
 
     if data_augmentation:
@@ -231,6 +232,7 @@ def get_skinlesion(batch_size: int,
     transform_augment_shared = transforms.Compose([
         ST.SegRandomHorizontalFlip(p=0.5),
         transforms.RandomApply([ST.SegRandomRotation(180)], p=0.75),
+        transforms.RandomApply([ST.SegElasticTransform(alpha=300.0, sigma=7.5)], p=0.1),
         transform_shared
     ])
 
