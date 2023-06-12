@@ -266,6 +266,10 @@ def main():
     args = set_args()
     print(args)
     
+    # Check if cuda is available.
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device:\t{device}')
+    
     # Model setup
     if args.data_choice.lower() == "skinlesion":
         _in_size = (144, 192)
