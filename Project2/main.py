@@ -102,10 +102,10 @@ def get_model(
 ):
     if model_type.lower() == "cnn":
         model = CNN(in_channels=in_channels, in_size=in_size, n_features=n_features)
-    elif model_type.lower() == "unet":
-        model = UNet(in_channels=in_channels, in_size=in_size, n_features=n_features)
     elif model_type.lower() == "unet_base":
-        model = UNet_base(in_channels=in_channels, n_features=n_features)
+        model = UNet_base(in_channels=in_channels, in_size=in_size, n_features=n_features)
+    elif model_type.lower() == "unet":
+        model = UNet(in_channels=in_channels, n_features=n_features)
 
     model.to(device)
     return model
@@ -200,9 +200,8 @@ def train(
 
         # Early stopping
         if earlystopper is not None:
-            earlystopper(avg_val_loss, model)
-            if earlystopper.early_stop:
-                print("Early stopping")
+            if earlystopper(avg_val_loss):
+                print('Training ended as the early stopping criteria was met.')
                 break
 
     return out_dict
