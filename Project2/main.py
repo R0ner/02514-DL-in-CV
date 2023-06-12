@@ -17,6 +17,7 @@ from eval_metrics import (
 from EarlyStopping import EarlyStopper
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from tqdm import tqdm
+from utils import convert
 
 
 def set_args():
@@ -67,7 +68,7 @@ def set_args():
     parser.add_argument(
         "--early_stopping_patience",
         type=int,
-        default=6,
+        default=18,
         help="Number of patience epochs for early stopping",
     )
     parser.add_argument(
@@ -90,6 +91,11 @@ def set_args():
         choices=["SkinLesion", "Retina"],
         help="Which dataset to use for training",
     )
+    parser.add_argument(
+        "--no_save",
+        action="store_true",
+        help="Whether to save the result or not",
+    )
     return parser.parse_args()
 
 
@@ -102,10 +108,10 @@ def get_model(
 ):
     if model_type.lower() == "cnn":
         model = CNN(in_channels=in_channels, in_size=in_size, n_features=n_features)
-    elif model_type.lower() == "unet":
-        model = UNet(in_channels=in_channels, in_size=in_size, n_features=n_features)
     elif model_type.lower() == "unet_base":
-        model = UNet_base(in_channels=in_channels, n_features=n_features)
+        model = UNet_base(in_channels=in_channels, in_size=in_size, n_features=n_features)
+    elif model_type.lower() == "unet":
+        model = UNet(in_channels=in_channels, n_features=n_features)
 
     model.to(device)
     return model
@@ -131,7 +137,7 @@ def get_optimizer(optim_type, model, lr):
 
 def get_lr_scheduler(scheduler_type, optimizer):
     if scheduler_type.lower() == "reducelronplateau":
-        return ReduceLROnPlateau(optimizer, patience=3)
+        return ReduceLROnPlateau(optimizer, patience=9)
     elif scheduler_type.lower() == "expdecay":
         return ExponentialLR(optimizer, gamma=0.1)
 
@@ -165,7 +171,7 @@ def train(
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
-
+        
         # Calculate average training loss
         avg_train_loss = np.mean(train_loss)
 
@@ -200,9 +206,8 @@ def train(
 
         # Early stopping
         if earlystopper is not None:
-            earlystopper(avg_val_loss, model)
-            if earlystopper.early_stop:
-                print("Early stopping")
+            if earlystopper(avg_val_loss):
+                print('Training ended as the early stopping criteria was met.')
                 break
 
     return out_dict
@@ -238,7 +243,7 @@ def evaluate_segmentation_model(
 
             # Calculate metrics
             for metric_name, metric_fn in metric_functions.items():
-                score = metric_fn(target, output_binary)
+                score = metric_fn(target.cpu(), output_binary.cpu())
                 metrics[metric_name].append(score)
 
     # Compute mean and confidence interval for each metric
@@ -251,7 +256,7 @@ def evaluate_segmentation_model(
         }
 
         print(
-            f"{metric_name.capitalize()}:\n\tMean: {mean_score}\n\tConfidence interval: {conf_interval}"
+            f"{metric_name.capitalize()}:\n\tMean:\t{mean_score:.5f}\n\tC.I:\t{conf_interval:.5f}"
         )
 
     return final_metrics
@@ -263,9 +268,9 @@ def main():
     
     # Model setup
     if args.data_choice.lower() == "skinlesion":
-        _in_size = (576, 767)
+        _in_size = (576, 752)
     elif args.data_choice.lower() == "retina":
-        _in_size = (584, 565)
+        _in_size = (288, 288)
     
     model = get_model(
         args.model_type,
@@ -291,6 +296,7 @@ def main():
             num_workers=args.num_workers,
             data_augmentation=args.data_augmentation,
         )
+        test_loader = val_loader
     print("Done!")
 
     # Early stopping setup
@@ -314,45 +320,46 @@ def main():
     )
 
     # Evaluate model on test set
-    #final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
+    final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
 
-    # Save stats and checkpoint
-    save_dir = f"models/{args.model_type.lower()}"
-    if not os.path.exists("models"):
-        os.mkdir("models")
+    if not args.no_save:
+        # Save stats and checkpoint
+        save_dir = f"models/{args.model_type.lower()}"
+        if not os.path.exists("models"):
+            os.mkdir("models")
 
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-        os.mkdir(save_dir + "/checkpoints")
-        os.mkdir(save_dir + "/stats")
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+            os.mkdir(save_dir + "/checkpoints")
+            os.mkdir(save_dir + "/stats")
 
-    # Model name for saving stats and checkpoint
-    model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
+        # Model name for saving stats and checkpoint
+        model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
 
-    # Save used hyperparamters
-    out_dict["model"] = args.model_type.lower()
-    out_dict["model_name"] = model_name
-    out_dict["data_augmentation"] = args.data_augmentation
-    out_dict["optimizer"] = args.optimizer_type.upper()
-    out_dict["loss_function"] = args.loss_function
+        # Save used hyperparamters
+        out_dict["model"] = args.model_type.lower()
+        out_dict["model_name"] = model_name
+        out_dict["data_augmentation"] = args.data_augmentation
+        out_dict["optimizer"] = args.optimizer_type.upper()
+        out_dict["loss_function"] = args.loss_function
 
-    # Checkpoint
-    save_path = f"{save_dir}/checkpoints/{model_name}.pt"
-    print(f"Saving model to:\t{save_path}")
-    torch.save(model.state_dict(), save_path)
+        # Checkpoint
+        save_path = f"{save_dir}/checkpoints/{model_name}.pt"
+        print(f"Saving model to:\t{save_path}")
+        torch.save(model.state_dict(), save_path)
 
-    # Stats
-    save_path = f"{save_dir}/stats/{model_name}.json"
-    print(f"Saving training stats to:\t{save_path}")
+        # Stats
+        save_path = f"{save_dir}/stats/{model_name}.json"
+        print(f"Saving training stats to:\t{save_path}")
 
-    with open(save_path, "w") as f:
-        json.dump(out_dict, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(out_dict, f, indent=6)
 
-    #save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
-    #print(f"Saving test stats to:\t{save_path}")
+        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
+        print(f"Saving test stats to:\t{save_path}")
 
-    #with open(save_path, "w") as f:
-    #    json.dump(final_metrics, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(final_metrics, f, indent=6, default=convert)
 
 
 if __name__ == "__main__":
