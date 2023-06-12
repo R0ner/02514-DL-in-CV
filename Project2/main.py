@@ -157,13 +157,14 @@ def train(
 
     model.to(device)
 
-    out_dict = {"epoch": [], "train_loss": [], "val_loss": [], "lr": []}
+    out_dict = {"epoch": [], "train_loss": [], "val_loss": [], "lr": [], "train_acc": [], "val_acc": []}
 
     for epoch in range(num_epochs):
         print("* Epoch %d/%d" % (epoch + 1, num_epochs))
         # Train
         model.train()
         train_loss = []
+        train_accuracy = []
         for data, target in tqdm(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -172,32 +173,47 @@ def train(
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
+
+            # Calculate accuracy
+            output = model(data)
+            output_binary = torch.round(torch.sigmoid(output))
+            train_accuracy.append(accuracy(target.cpu(), output_binary.cpu()))
         
         # Calculate average training loss
         avg_train_loss = np.mean(train_loss)
+        avg_train_acc = np.mean(train_accuracy)
 
         # Validate
         model.eval()
         val_loss = []
+        val_accuracy = []
         for data, target in val_loader:
             data, target = data.to(device), target.to(device)
             with torch.no_grad():
                 output = model(data)
+                output_binary = torch.round(torch.sigmoid(output))
+                val_accuracy.append(accuracy(target.cpu(), output_binary.cpu()))
             val_loss.append(loss_fun(output, target).item())
 
         # Calculate average validation loss
         avg_val_loss = np.mean(val_loss)
+        avg_val_acc = np.mean(val_accuracy)
 
         # Save stats
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
         out_dict["val_loss"].append(avg_val_loss)
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
+        out_dict['train_acc'].append(avg_train_acc)
+        out_dict['val_acc'].append(avg_val_acc)
 
         print(
-            f"Epoch: {epoch}, Loss - Train: {avg_train_loss:.3f}, Validation: {avg_val_loss:.3f}, "
+            f"Epoch: {epoch}, "
+            f"Loss - Train: {avg_train_loss:.3f}, Validation: {avg_val_loss:.3f}, "
+            f"Accuracy - Train: {avg_train_acc:.3f}, Validation: {avg_val_acc:.3f}, "
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
+
 
         # Update learning rate
         if isinstance(scheduler, ReduceLROnPlateau):
