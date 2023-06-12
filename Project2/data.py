@@ -237,7 +237,8 @@ def get_skinlesion(batch_size: int,
     ])
 
     # Shared transforms between label and image.
-    transform_shared = transforms.Compose([ST.SegResize(size=(576, 752))])
+    transform_shared = transforms.Compose([ST.SegResize(size=(144, 188)),
+                                           ST.SegPad((2,0))])
     transform_augment_shared = transforms.Compose([
         ST.SegRandomHorizontalFlip(p=0.5),
         transforms.RandomApply([ST.SegRandomRotation(180)], p=0.5),
