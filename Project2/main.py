@@ -12,6 +12,7 @@ from eval_metrics import (
     accuracy,
     precision,
     recall,
+    specificity,
     mean_score_and_conf_interval,
 )
 from EarlyStopping import EarlyStopper
@@ -227,6 +228,7 @@ def evaluate_segmentation_model(
         "accuracy": accuracy,
         "precision": precision,
         "recall": recall,
+        "specificity": specificity
     }
 
     metrics = {"jaccard": [], "dice": [], "accuracy": [], "precision": [], "recall": []}
@@ -269,7 +271,7 @@ def main():
     # Check if cuda is available.
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device:\t{device}')
-    
+
     # Model setup
     if args.data_choice.lower() == "skinlesion":
         _in_size = (144, 192)
@@ -326,6 +328,9 @@ def main():
     # Evaluate model on test set
     final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
 
+    # Join dictionaries
+    out_dict = {**out_dict, **final_metrics}
+    
     if not args.no_save:
         # Save stats and checkpoint
         save_dir = f"models/{args.data_choice.lower()}/{args.model_type.lower()}"
@@ -362,11 +367,11 @@ def main():
         with open(save_path, "w") as f:
             json.dump(out_dict, f, indent=6)
 
-        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
-        print(f"Saving test stats to:\t{save_path}")
+        # save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
+        # print(f"Saving test stats to:\t{save_path}")
 
-        with open(save_path, "w") as f:
-            json.dump(final_metrics, f, indent=6, default=convert)
+        # with open(save_path, "w") as f:
+        #     json.dump(final_metrics, f, indent=6, default=convert)
 
 
 if __name__ == "__main__":
