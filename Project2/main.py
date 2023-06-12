@@ -382,7 +382,7 @@ def main():
         print(f"Saving training stats to:\t{save_path}")
 
         with open(save_path, "w") as f:
-            json.dump(out_dict, f, indent=6)
+            json.dump(out_dict, f, indent=6, default=convert)
 
         # save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
         # print(f"Saving test stats to:\t{save_path}")

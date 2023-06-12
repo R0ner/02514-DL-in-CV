@@ -1,16 +1,26 @@
 #!/bin/bash
 
 # List of models
-models=("CNN" "UNet" "UNet_base")
+models=("UNet")
 
 # List of optimizers
-optimizers=("adam" "sgd")
+optimizers=("adam")
 
 # List of loss functions
-loss_functions=("bce_loss" "dice_loss" "focal_loss" "bce_total_variation")
+loss_functions=("bce_loss" "dice_loss" "bce_total_variation")
 
 # Set your CUDA device here
 export CUDA_VISIBLE_DEVICES=0
+
+# Set the flag to decide whether to use data augmentation or not
+use_data_augmentation=true
+
+# Check if data augmentation flag is set
+if [ "$use_data_augmentation" = true ]; then
+  data_augmentation_flag="--data_augmentation"
+else
+  data_augmentation_flag=""
+fi
 
 # Loop over the models
 for model in ${models[@]}; do
@@ -23,9 +33,9 @@ for model in ${models[@]}; do
 
       # Command to run the model with different configurations
       python main.py \
-        --n_features 16 \
+        --n_features 24 \
         --model_type ${model} \
-        --data_augmentation \
+        ${data_augmentation_flag} \
         --batch_size 2 \
         --num_workers 8 \
         --optimizer_type ${optimizer} \
