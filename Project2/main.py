@@ -17,6 +17,7 @@ from eval_metrics import (
 from EarlyStopping import EarlyStopper
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from tqdm import tqdm
+from utils import convert
 
 
 def set_args():
@@ -242,7 +243,7 @@ def evaluate_segmentation_model(
 
             # Calculate metrics
             for metric_name, metric_fn in metric_functions.items():
-                score = metric_fn(target, output_binary)
+                score = metric_fn(target.cpu(), output_binary.cpu())
                 metrics[metric_name].append(score)
 
     # Compute mean and confidence interval for each metric
@@ -354,11 +355,11 @@ def main():
         with open(save_path, "w") as f:
             json.dump(out_dict, f, indent=6)
 
-        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
+        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json"
         print(f"Saving test stats to:\t{save_path}")
 
         with open(save_path, "w") as f:
-            json.dump(final_metrics, f, indent=6)
+            json.dump(final_metrics, f, indent=6, default=convert)
 
 
 if __name__ == "__main__":
