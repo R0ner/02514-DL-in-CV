@@ -55,7 +55,7 @@ class CNN(nn.Module):
 
 class UNet_base(nn.Module):
     """Original UNet implementation with maxpooling and upsampling."""
-    def __init__(self, in_channels=3, in_size=128, n_features=64):
+    def __init__(self, in_channels=3, in_size=(584, 565), n_features=64):
         super().__init__()
 
         self.in_channels = in_channels
@@ -109,6 +109,8 @@ class UNet(nn.Module):
 
         self.in_channels = in_channels
         self.n_features = n_features
+        
+        #TODO: We have issues with odd shape dimensions, we either need to handle this prior to model fitting or alter the code
 
         
         # encoder (downsampling)
