@@ -7,9 +7,13 @@ from torchvision.transforms.functional import InterpolationMode
 
 class SegResize(transforms.Resize):
 
-    def __init__(self, size, interpolation=InterpolationMode.BILINEAR, max_size=None, antialias="warn"):
+    def __init__(self,
+                 size,
+                 interpolation=InterpolationMode.BILINEAR,
+                 max_size=None,
+                 antialias="warn"):
         super().__init__(size, interpolation, max_size, antialias)
-    
+
     def forward(self, imgs):
         """
         Args:
@@ -78,12 +82,71 @@ class SegRandomRotation(transforms.RandomRotation):
                       fill) for img in imgs
         ]
 
+
 class SegElasticTransform(transforms.ElasticTransform):
-    def __init__(self, alpha=50.0, sigma=5.0, interpolation=Image.BILINEAR, fill=0):
+
+    def __init__(self,
+                 alpha=50.0,
+                 sigma=5.0,
+                 interpolation=Image.BILINEAR,
+                 fill=0):
         super().__init__(alpha, sigma, interpolation, fill)
-    
+
     def forward(self, imgs):
         _, height, width = FT.get_dimensions(imgs[0])
         displacement = self.get_params(self.alpha, self.sigma, [height, width])
 
-        return [FT.to_pil_image(FT.elastic_transform(FT.to_tensor(img), displacement, self.interpolation, self.fill)) for img in imgs]
+        return [
+            FT.to_pil_image(
+                FT.elastic_transform(FT.to_tensor(img), displacement,
+                                     self.interpolation, self.fill))
+            for img in imgs
+        ]
+
+
+class SegCenterCrop(transforms.CenterCrop):
+
+    def __init__(self, size):
+        super().__init__(size)
+
+    def forward(self, imgs):
+        imgs_cropped = []
+        for img in imgs:
+            imgs_cropped.append(super().forward(img))
+        return imgs_cropped
+
+
+class SegRandomAffine(transforms.RandomAffine):
+
+    def __init__(self,
+                 degrees=0,
+                 translate=None,
+                 scale=None,
+                 shear=None,
+                 interpolation=InterpolationMode.NEAREST,
+                 fill=0,
+                 center=None):
+        super().__init__(degrees, translate, scale, shear, interpolation, fill,
+                         center)
+
+    def forward(self, imgs):
+        fill = self.fill
+        channels, height, width = FT.get_dimensions(imgs[0])
+        if isinstance(imgs[0], torch.Tensor):
+            if isinstance(fill, (int, float)):
+                fill = [float(fill)] * channels
+            else:
+                fill = [float(f) for f in fill]
+
+        img_size = [width, height]  # flip for keeping BC on get_params call
+
+        ret = self.get_params(self.degrees, self.translate, self.scale,
+                              self.shear, img_size)
+
+        return [
+            FT.affine(img,
+                      *ret,
+                      interpolation=self.interpolation,
+                      fill=fill,
+                      center=self.center) for img in imgs
+        ]
