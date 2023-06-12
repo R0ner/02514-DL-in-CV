@@ -330,7 +330,7 @@ def main():
 
     # Join dictionaries
     out_dict = {**out_dict, **final_metrics}
-    
+
     if not args.no_save:
         # Save stats and checkpoint
         save_dir = f"models/{args.data_choice.lower()}/{args.model_type.lower()}"
@@ -352,6 +352,7 @@ def main():
         out_dict["model"] = args.model_type.lower()
         out_dict["model_name"] = model_name
         out_dict["data_augmentation"] = args.data_augmentation
+        out_dict["n_features"] = args.n_features
         out_dict["optimizer"] = args.optimizer_type.upper()
         out_dict["loss_function"] = args.loss_function
 
