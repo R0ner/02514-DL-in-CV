@@ -54,7 +54,7 @@ class CNN(nn.Module):
 
 class UNet_base(nn.Module):
     """Original UNet implementation with maxpooling and upsampling."""
-    def __init__(self, in_channels=3, in_size=128, n_features=64):
+    def __init__(self, in_channels=3, in_size=(584, 565), n_features=64):
         super().__init__()
 
         self.in_channels = in_channels
@@ -75,11 +75,11 @@ class UNet_base(nn.Module):
         self.bottleneck_conv = nn.Conv2d(self.n_features, self.n_features, 3, padding=1)
 
         # decoder (upsampling)
-        self.upsample0 = nn.Upsample(self.in_size // 8)  # in_size // 16 -> in_size // 8
+        self.upsample0 = nn.Upsample((self.in_size[0] // 8, self.in_size[1] // 8))  # in_size // 16 -> in_size // 8
         self.dec_conv0 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
-        self.upsample1 = nn.Upsample(self.in_size // 4)  # in_size // 8 -> in_size // 4
+        self.upsample1 = nn.Upsample((self.in_size[0] // 4, self.in_size[1] // 4))  # in_size // 8 -> in_size // 4
         self.dec_conv1 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
-        self.upsample2 = nn.Upsample(self.in_size // 2)  # in_size // 4 -> in_size // 2
+        self.upsample2 = nn.Upsample((self.in_size[0] // 2, self.in_size[1] // 2))  # in_size // 4 -> in_size // 2
         self.dec_conv2 = nn.Conv2d(2 * self.n_features, self.n_features, 3, padding=1)
         self.upsample3 = nn.Upsample(self.in_size)  # in_size // 2 -> in_size
         self.dec_conv3 = nn.Conv2d(2 * self.n_features, 1, 3, padding=1)
@@ -108,6 +108,8 @@ class UNet(nn.Module):
 
         self.in_Channels = in_channels
         self.n_features = n_features
+        
+        #TODO: We have issues with odd shape dimensions, we either need to handle this prior to model fitting or alter the code
 
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(3, self.n_features, 3, padding=1)
@@ -143,8 +145,27 @@ class UNet(nn.Module):
         b = F.relu(self.bottleneck_conv(self.pool3(e3)))
 
         # decoder
-        d0 = F.relu(self.dec_conv0(torch.cat([self.upsample0(b), e3], 1)))
-        d1 = F.relu(self.dec_conv1(torch.cat([self.upsample1(d0), e2], 1)))
-        d2 = F.relu(self.dec_conv2(torch.cat([self.upsample2(d1), e1], 1)))
-        d3 = self.dec_conv3(torch.cat([self.upsample3(d2), e0], 1))  # no activation
+        #d0 = F.relu(self.dec_conv0(torch.cat([self.upsample0(b), e3], 1)))
+        #d1 = F.relu(self.dec_conv1(torch.cat([self.upsample1(d0), e2], 1)))
+        #d2 = F.relu(self.dec_conv2(torch.cat([self.upsample2(d1), e1], 1)))
+        #d3 = self.dec_conv3(torch.cat([self.upsample3(d2), e0], 1))  # no activation
+        
+        # decoder 
+        # TODO: Validate this fix to odd shapes
+        d0_up = self.upsample0(b)
+        d0_up = F.interpolate(d0_up, size=e3.size()[2:], mode='bilinear', align_corners=False)
+        d0 = F.relu(self.dec_conv0(torch.cat([d0_up, e3], 1)))
+
+        d1_up = self.upsample1(d0)
+        d1_up = F.interpolate(d1_up, size=e2.size()[2:], mode='bilinear', align_corners=False)
+        d1 = F.relu(self.dec_conv1(torch.cat([d1_up, e2], 1)))
+
+        d2_up = self.upsample2(d1)
+        d2_up = F.interpolate(d2_up, size=e1.size()[2:], mode='bilinear', align_corners=False)
+        d2 = F.relu(self.dec_conv2(torch.cat([d2_up, e1], 1)))
+
+        d3_up = self.upsample3(d2)
+        d3_up = F.interpolate(d3_up, size=e0.size()[2:], mode='bilinear', align_corners=False)
+        d3 = self.dec_conv3(torch.cat([d3_up, e0], 1))  # no activation
+        
         return d3
