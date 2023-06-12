@@ -1,16 +1,14 @@
 import glob
 import os
+import random
+from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
 import torchvision.transforms.functional as FT
 from PIL import Image
-from torchvision.transforms.functional import InterpolationMode
-import numpy as np
-from pathlib import Path
-import random
+from torch.utils.data import DataLoader
+import segmentation_transforms as ST
 
 # Standardization is done according to training set (mean and std. for the training set)
 standardize_retina = transforms.Normalize([0.4723, 0.3084, 0.1978],
@@ -25,7 +23,7 @@ standardize_retina_inv = transforms.Compose([
 standardize_skinlesion = transforms.Normalize([0.7508, 0.5745, 0.4853],
                                               [0.1632, 0.1582, 0.1579])
 standardize_skinlesion_inv = transforms.Compose([
-    transforms.Normalize([0, 0, 0], [1 / 0.1632, 1 /0.1582,  1 / 0.1579]),
+    transforms.Normalize([0, 0, 0], [1 / 0.1632, 1 / 0.1582, 1 / 0.1579]),
     transforms.Normalize([-0.7508, -0.5745, -0.4853], [1, 1, 1])
 ])
 
@@ -85,7 +83,7 @@ class RetinaSet(torch.utils.data.Dataset):
             image, label = self.transform_shared([image, label])
 
         X = self.transform(image)
-        Y = FT.to_tensor(label)
+        Y = (FT.to_tensor(label) > 1e-4).float()
         return X, Y
 
 
@@ -94,14 +92,19 @@ class SkinLesion(torch.utils.data.Dataset):
     def __init__(self,
                  train,
                  transform,
-                 data_indices,
+                 transform_shared,
                  data_path='/dtu/datasets1/02514/PH2_Dataset_images'):
         'Initialization'
         self.image_paths = []
         self.label_paths = []
         self.data_path = data_path
         self.transform = transform
-        
+        self.transform_shared = transform_shared
+
+        # Generate indices for data splits.
+        random.seed(42)
+        self.data_indices = random.sample(range(200), 200)
+
         for p in Path(data_path).glob('IMD*'):
             self.p_id = p.name
 
@@ -122,28 +125,27 @@ class SkinLesion(torch.utils.data.Dataset):
                 self.roi_paths = sorted(glob.glob(os.path.join(
                     f3, '*.bmp')))  # Multiclass segmentation if time
 
-
         ### Split is 80/10/10 percent. Randomized indexes in get_skinlesion.
         if train == 'train':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[0:160]
+                self.image_paths[i] for i in self.data_indices[0:160]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[0:160]
+                self.label_paths[i] for i in self.data_indices[0:160]
             ]
         elif train == 'val':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[160:180]
+                self.image_paths[i] for i in self.data_indices[160:180]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[160:180]
+                self.label_paths[i] for i in self.data_indices[160:180]
             ]
         elif train == 'test':
             self.image_paths = [
-                self.image_paths[i] for i in data_indices[180:200]
+                self.image_paths[i] for i in self.data_indices[180:200]
             ]
             self.label_paths = [
-                self.label_paths[i] for i in data_indices[180:200]
+                self.label_paths[i] for i in self.data_indices[180:200]
             ]
 
     def __len__(self):
@@ -157,64 +159,13 @@ class SkinLesion(torch.utils.data.Dataset):
 
         image = Image.open(image_path)
         label = Image.open(label_path)
+
+        if self.transform_shared is not None:
+            image, label = self.transform_shared([image, label])
+
         Y = FT.to_tensor(label)
         X = self.transform(image)
         return X, Y
-
-
-class SegRandomHorizontalFlip(transforms.RandomHorizontalFlip):
-
-    def __init__(self, p=0.5):
-        super().__init__(p)
-
-    def forward(self, imgs):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be flipped.
-
-        Returns:
-            PIL Image or Tensor: Randomly flipped image.
-        """
-        if torch.rand(1) < self.p:
-            return [FT.hflip(img) for img in imgs]
-        return imgs
-
-
-class SegRandomRotation(transforms.RandomRotation):
-
-    def __init__(self,
-                 degrees,
-                 interpolation=InterpolationMode.NEAREST,
-                 expand=False,
-                 center=None,
-                 fill=0):
-        super().__init__(degrees, interpolation, expand, center, fill)
-
-    def forward(self, imgs):
-        """
-        Args:
-            img (PIL Image or Tensor): Image to be rotated.
-
-        Returns:
-            PIL Image or Tensor: Rotated image.
-        """
-        fill = self.fill
-        fills = []
-        for img in imgs:
-            channels, _, _ = FT.get_dimensions(img)
-            if isinstance(img, torch.Tensor):
-                if isinstance(fill, (int, float)):
-                    fill = [float(fill)] * channels
-                else:
-                    fill = [float(f) for f in fill]
-            fills.append(fill)
-
-        angle = self.get_params(self.degrees)
-
-        return [
-            FT.rotate(img, angle, self.interpolation, self.expand, self.center,
-                      fill) for img in imgs
-        ]
 
 
 def get_retina(batch_size: int,
@@ -224,24 +175,38 @@ def get_retina(batch_size: int,
     # Image transforms
     transform = transforms.Compose([transforms.ToTensor(), standardize_retina])
     transform_augment = transforms.Compose([
-        transforms.RandomApply([transforms.ColorJitter(.3, .5, .1, .02)],
-                               p=.9),
-        transform
+        transforms.RandomApply([transforms.ColorJitter(.3, .3, .1, .02)],
+                               p=.9), transform
     ])
 
     # Shared transforms between label and image.
+    transform_shared = transforms.Compose([
+        ST.SegCenterCrop(size=(576, 576)),
+        ST.SegResize(size=(288, 288))
+    ])
     transform_augment_shared = transforms.Compose([
-        SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([SegRandomRotation(180)], p=0.75)
+        ST.SegRandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.9),
+        transforms.RandomApply([
+            ST.SegRandomAffine(
+                translate=(.04, .04), scale=(.95, 1.05), shear=(-5, 5, -5, 5))
+        ], p=0.9),
+        transforms.RandomApply([
+            transforms.RandomChoice([
+                ST.SegElasticTransform(alpha=400.0, sigma=7.5),
+                ST.SegElasticTransform(alpha=1000.0, sigma=15.0)
+            ], p=(0.5, 0.5))
+        ], p=0.5), transform_shared
     ])
 
     if data_augmentation:
-        train_dataset = RetinaSet('train', transform_augment, transform_augment_shared)
+        train_dataset = RetinaSet('train', transform_augment,
+                                  transform_augment_shared)
     else:
-        train_dataset = RetinaSet('train', transform)
+        train_dataset = RetinaSet('train', transform, transform_shared)
 
-    val_dataset = RetinaSet('val', transform)
-    test_dataset = RetinaSet('test', transform)  # No labels!
+    val_dataset = RetinaSet('val', transform, transform_shared)
+    test_dataset = RetinaSet('test', transform, transform_shared)  # No labels!
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -263,35 +228,41 @@ def get_skinlesion(batch_size: int,
                    num_workers: int = 8,
                    data_augmentation: bool = True):
 
+    # Image transforms
     transform = transforms.Compose(
         [transforms.ToTensor(), standardize_skinlesion])
-
-    # Shared transforms
-    transform_shared = transforms.Compose([
-        SegRandomHorizontalFlip(p=0.5),
-        transforms.RandomApply([SegRandomRotation(180)], p=0.75),
-        # transforms.RandomApply([transforms.ColorJitter(.2, .2, .1, .05)], p=0.1),
-        # transform
+    transform_augment = transforms.Compose([
+        transforms.RandomApply([transforms.ColorJitter(.3, .5, .1, .02)],
+                               p=.9), transform
     ])
-    random.seed(42)
-    random_idxs = random.sample(range(200), 200)
-    if data_augmentation:
-        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
-    else:
-        train_dataset = SkinLesion('train', transform, data_indices=random_idxs)
 
-    val_dataset = SkinLesion('val', transform, data_indices=random_idxs)
-    test_dataset = SkinLesion('test', transform, data_indices=random_idxs)
-    
+    # Shared transforms between label and image.
+    transform_shared = transforms.Compose([ST.SegResize(size=(576, 752))])
+    transform_augment_shared = transforms.Compose([
+        ST.SegRandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([ST.SegRandomRotation(180)], p=0.5),
+        transforms.RandomApply(
+            [ST.SegElasticTransform(alpha=300.0, sigma=7.5)], p=0.1),
+        transform_shared
+    ])
+
+    if data_augmentation:
+        train_dataset = SkinLesion('train', transform_augment,
+                                   transform_augment_shared)
+    else:
+        train_dataset = SkinLesion('train', transform, transform_shared)
+
+    val_dataset = SkinLesion('val', transform, transform_shared)
+    test_dataset = SkinLesion('test', transform, transform_shared)
 
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=num_workers)
     val_loader = DataLoader(val_dataset,
-                              batch_size=batch_size,
-                              shuffle=True,
-                              num_workers=num_workers)
+                            batch_size=batch_size,
+                            shuffle=True,
+                            num_workers=num_workers)
     test_loader = DataLoader(test_dataset,
                              batch_size=batch_size,
                              shuffle=False,

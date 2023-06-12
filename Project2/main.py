@@ -67,7 +67,7 @@ def set_args():
     parser.add_argument(
         "--early_stopping_patience",
         type=int,
-        default=6,
+        default=18,
         help="Number of patience epochs for early stopping",
     )
     parser.add_argument(
@@ -89,6 +89,11 @@ def set_args():
         default="SkinLesion",
         choices=["SkinLesion", "Retina"],
         help="Which dataset to use for training",
+    )
+    parser.add_argument(
+        "--no_save",
+        action="store_true",
+        help="Whether to save the result or not",
     )
     return parser.parse_args()
 
@@ -131,7 +136,7 @@ def get_optimizer(optim_type, model, lr):
 
 def get_lr_scheduler(scheduler_type, optimizer):
     if scheduler_type.lower() == "reducelronplateau":
-        return ReduceLROnPlateau(optimizer, patience=3)
+        return ReduceLROnPlateau(optimizer, patience=9)
     elif scheduler_type.lower() == "expdecay":
         return ExponentialLR(optimizer, gamma=0.1)
 
@@ -165,7 +170,7 @@ def train(
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
-
+        
         # Calculate average training loss
         avg_train_loss = np.mean(train_loss)
 
@@ -250,7 +255,7 @@ def evaluate_segmentation_model(
         }
 
         print(
-            f"{metric_name.capitalize()}:\n\tMean: {mean_score}\n\tConfidence interval: {conf_interval}"
+            f"{metric_name.capitalize()}:\n\tMean:\t{mean_score:.5f}\n\tC.I:\t{conf_interval:.5f}"
         )
 
     return final_metrics
@@ -259,12 +264,17 @@ def evaluate_segmentation_model(
 def main():
     args = set_args()
     print(args)
-
+    
     # Model setup
+    if args.data_choice.lower() == "skinlesion":
+        _in_size = (576, 752)
+    elif args.data_choice.lower() == "retina":
+        _in_size = (288, 288)
+    
     model = get_model(
         args.model_type,
         in_channels=3,
-        in_size=(584, 565), #TODO: in_size is hardcoded for Retina, should probably depend on data type instead.
+        in_size=_in_size, #TODO: in_size is hardcoded for Retina, should probably depend on data type instead.
         n_features=args.n_features,
     )
     loss_func = get_loss_func(args.loss_function)
@@ -274,7 +284,7 @@ def main():
     # Data loading
     print("Getting data...")
     if args.data_choice.lower() == "skinlesion":
-        _, _, train_loader, val_loader, test_loader = get_skinlesion(
+        _, _, _, train_loader, val_loader, test_loader = get_skinlesion(
             args.batch_size,
             num_workers=args.num_workers,
             data_augmentation=args.data_augmentation,
@@ -285,6 +295,7 @@ def main():
             num_workers=args.num_workers,
             data_augmentation=args.data_augmentation,
         )
+        test_loader = val_loader
     print("Done!")
 
     # Early stopping setup
@@ -308,45 +319,46 @@ def main():
     )
 
     # Evaluate model on test set
-    #final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
+    final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
 
-    # Save stats and checkpoint
-    save_dir = f"models/{args.model_type.lower()}"
-    if not os.path.exists("models"):
-        os.mkdir("models")
+    if not args.no_save:
+        # Save stats and checkpoint
+        save_dir = f"models/{args.model_type.lower()}"
+        if not os.path.exists("models"):
+            os.mkdir("models")
 
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-        os.mkdir(save_dir + "/checkpoints")
-        os.mkdir(save_dir + "/stats")
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+            os.mkdir(save_dir + "/checkpoints")
+            os.mkdir(save_dir + "/stats")
 
-    # Model name for saving stats and checkpoint
-    model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
+        # Model name for saving stats and checkpoint
+        model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
 
-    # Save used hyperparamters
-    out_dict["model"] = args.model_type.lower()
-    out_dict["model_name"] = model_name
-    out_dict["data_augmentation"] = args.data_augmentation
-    out_dict["optimizer"] = args.optimizer_type.upper()
-    out_dict["loss_function"] = args.loss_function
+        # Save used hyperparamters
+        out_dict["model"] = args.model_type.lower()
+        out_dict["model_name"] = model_name
+        out_dict["data_augmentation"] = args.data_augmentation
+        out_dict["optimizer"] = args.optimizer_type.upper()
+        out_dict["loss_function"] = args.loss_function
 
-    # Checkpoint
-    save_path = f"{save_dir}/checkpoints/{model_name}.pt"
-    print(f"Saving model to:\t{save_path}")
-    torch.save(model.state_dict(), save_path)
+        # Checkpoint
+        save_path = f"{save_dir}/checkpoints/{model_name}.pt"
+        print(f"Saving model to:\t{save_path}")
+        torch.save(model.state_dict(), save_path)
 
-    # Stats
-    save_path = f"{save_dir}/stats/{model_name}.json"
-    print(f"Saving training stats to:\t{save_path}")
+        # Stats
+        save_path = f"{save_dir}/stats/{model_name}.json"
+        print(f"Saving training stats to:\t{save_path}")
 
-    with open(save_path, "w") as f:
-        json.dump(out_dict, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(out_dict, f, indent=6)
 
-    #save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
-    #print(f"Saving test stats to:\t{save_path}")
+        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
+        print(f"Saving test stats to:\t{save_path}")
 
-    #with open(save_path, "w") as f:
-    #    json.dump(final_metrics, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(final_metrics, f, indent=6)
 
 
 if __name__ == "__main__":
