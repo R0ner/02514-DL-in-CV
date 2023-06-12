@@ -231,7 +231,7 @@ def evaluate_segmentation_model(
         "specificity": specificity
     }
 
-    metrics = {"jaccard": [], "dice": [], "accuracy": [], "precision": [], "recall": []}
+    metrics = {m: [] for m in metric_functions.keys()}
 
     with torch.no_grad():
         for data, target in tqdm(test_loader):
