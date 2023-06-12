@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # List of models
-models=("CNN" "UNet" "UNet_base")
+models=("CNN" "UNet")
 
 # List of optimizers
-optimizers=("adam" "sgd")
+optimizers=("adam")
 
 # List of loss functions
-loss_functions=("bce_loss" "dice_loss" "focal_loss" "bce_total_variation")
+loss_functions=("bce_loss" "dice_loss" "bce_total_variation")
 
 # Set your CUDA device here
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=1
 
 # Loop over the models
 for model in ${models[@]}; do
