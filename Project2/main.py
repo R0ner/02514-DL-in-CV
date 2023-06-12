@@ -90,6 +90,11 @@ def set_args():
         choices=["SkinLesion", "Retina"],
         help="Which dataset to use for training",
     )
+    parser.add_argument(
+        "--no_save",
+        action="store_true",
+        help="Whether to save the result or not",
+    )
     return parser.parse_args()
 
 
@@ -316,43 +321,44 @@ def main():
     # Evaluate model on test set
     final_metrics = evaluate_segmentation_model(model, test_loader) #TODO: Split labelled data into train, val & test
 
-    # Save stats and checkpoint
-    save_dir = f"models/{args.model_type.lower()}"
-    if not os.path.exists("models"):
-        os.mkdir("models")
+    if not args.no_save:
+        # Save stats and checkpoint
+        save_dir = f"models/{args.model_type.lower()}"
+        if not os.path.exists("models"):
+            os.mkdir("models")
 
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-        os.mkdir(save_dir + "/checkpoints")
-        os.mkdir(save_dir + "/stats")
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+            os.mkdir(save_dir + "/checkpoints")
+            os.mkdir(save_dir + "/stats")
 
-    # Model name for saving stats and checkpoint
-    model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
+        # Model name for saving stats and checkpoint
+        model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
 
-    # Save used hyperparamters
-    out_dict["model"] = args.model_type.lower()
-    out_dict["model_name"] = model_name
-    out_dict["data_augmentation"] = args.data_augmentation
-    out_dict["optimizer"] = args.optimizer_type.upper()
-    out_dict["loss_function"] = args.loss_function
+        # Save used hyperparamters
+        out_dict["model"] = args.model_type.lower()
+        out_dict["model_name"] = model_name
+        out_dict["data_augmentation"] = args.data_augmentation
+        out_dict["optimizer"] = args.optimizer_type.upper()
+        out_dict["loss_function"] = args.loss_function
 
-    # # Checkpoint
-    # save_path = f"{save_dir}/checkpoints/{model_name}.pt"
-    # print(f"Saving model to:\t{save_path}")
-    # torch.save(model.state_dict(), save_path)
+        # Checkpoint
+        save_path = f"{save_dir}/checkpoints/{model_name}.pt"
+        print(f"Saving model to:\t{save_path}")
+        torch.save(model.state_dict(), save_path)
 
-    # # Stats
-    # save_path = f"{save_dir}/stats/{model_name}.json"
-    # print(f"Saving training stats to:\t{save_path}")
+        # Stats
+        save_path = f"{save_dir}/stats/{model_name}.json"
+        print(f"Saving training stats to:\t{save_path}")
 
-    # with open(save_path, "w") as f:
-    #     json.dump(out_dict, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(out_dict, f, indent=6)
 
-    #save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
-    #print(f"Saving test stats to:\t{save_path}")
+        save_path = f"{save_dir}/stats/{model_name}_test_metrics.json" #TODO: can first be implemented when we have splits
+        print(f"Saving test stats to:\t{save_path}")
 
-    #with open(save_path, "w") as f:
-    #    json.dump(final_metrics, f, indent=6)
+        with open(save_path, "w") as f:
+            json.dump(final_metrics, f, indent=6)
 
 
 if __name__ == "__main__":
