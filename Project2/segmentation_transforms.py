@@ -4,6 +4,29 @@ import torchvision.transforms.functional as FT
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 
+class SegPad(transforms.Pad):
+    def __init__(self, 
+                 padding, 
+                 fill=0, 
+                 padding_mode="constant"):
+        super().__init__(padding, fill, padding_mode)
+
+
+    def forward(self, imgs):
+        """
+        Args:
+            img (PIL Image or Tensor): Image to be padded.
+
+        Returns:
+            PIL Image or Tensor: Padded image.
+        """
+        imgs_padded = []
+        for img in imgs:
+            imgs_padded.append(super().forward(img))
+        return imgs_padded
+
+
+
 
 class SegResize(transforms.Resize):
 

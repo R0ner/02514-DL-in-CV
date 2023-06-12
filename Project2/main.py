@@ -268,7 +268,7 @@ def main():
     
     # Model setup
     if args.data_choice.lower() == "skinlesion":
-        _in_size = (576, 752)
+        _in_size = (144, 192)
     elif args.data_choice.lower() == "retina":
         _in_size = (288, 288)
     
@@ -324,9 +324,9 @@ def main():
 
     if not args.no_save:
         # Save stats and checkpoint
-        save_dir = f"models/{args.model_type.lower()}"
-        if not os.path.exists("models"):
-            os.mkdir("models")
+        save_dir = f"models/{args.data_choice.lower()}/{args.model_type.lower()}"
+        if not os.path.exists(f"models/{args.data_choice.lower()}"):
+            os.mkdir(f"models/{args.data_choice.lower()}")
 
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
