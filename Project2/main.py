@@ -334,8 +334,11 @@ def main():
             os.mkdir(save_dir + "/stats")
 
         # Model name for saving stats and checkpoint
-        model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
-
+        if args.data_augmentation:
+            model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}_augmented"
+        else:
+            model_name = f"{args.model_type.lower()}_{args.n_features}_{args.optimizer_type}_{args.loss_function}"
+            
         # Save used hyperparamters
         out_dict["model"] = args.model_type.lower()
         out_dict["model_name"] = model_name

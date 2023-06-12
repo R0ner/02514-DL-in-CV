@@ -1,5 +1,5 @@
 import torch
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score, confusion_matrix
 import numpy as np
 
 def image_to_evaltensor(image):
@@ -63,6 +63,19 @@ def recall(y_true, y_pred):
     y_pred = image_to_evaltensor(y_pred).numpy()
     
     return recall_score(y_true, y_pred)
+
+def specificity(y_true, y_pred):
+    """
+    All evaluation metrics assume input to be flattened torch tensors of 
+    ground truth labels (y_true) and predicted labels (y_pred).
+    They then return the evaluation metric in question.
+    """
+    y_true = image_to_evaltensor(y_true).numpy()
+    y_pred = image_to_evaltensor(y_pred).numpy()
+    
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    
+    return tn / (tn + fp)
 
 def mean_score_and_conf_interval(metrics: list):
     """
