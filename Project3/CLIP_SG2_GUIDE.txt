@@ -1,7 +1,7 @@
 ################################
-##### GUIDE FOR VQGAN CLIP #####
+##### GUIDE FOR STYLE CLIP #####
 ################################
-# This is a step by step guide in terminal code for VQGAN CLIP.
+# This is a step by step guide in terminal code for STYLE2GAN CLIP.
 
 # First we make a NEW virtual environment in your folder of choice. Make sure to not be in your other venv by writing 'deactivate'.
 module load python3/3.8.14
@@ -23,6 +23,12 @@ source CLIPvenv/bin/activate
 # Run it and make sure you have compatible torch and CUDA components 
 pip3 install -r requirements.txt
 pip3 install torch==1.7.1+cu110 torchvision==0.8.2+cu110 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+
+# Change directory to the cloned repository
+cd StyleCLIP
+
+# Go to the repo here: https://github.com/vipermu/StyleCLIP
+# Download the weights and store it inside the folder of this repo with the name 'karras2019stylegan-ffhq-1024x1024.for_g_all.pt'
 
 # Run the script with prompt.
 python clip_generate.py --prompt "The image of a woman with blonde hair and purple eyes"
