@@ -30,5 +30,11 @@ cd StyleCLIP
 # Go to the repo here: https://github.com/vipermu/StyleCLIP
 # Download the weights and store it inside the folder of this repo with the name 'karras2019stylegan-ffhq-1024x1024.for_g_all.pt'
 
-# Run the script with prompt.
-python clip_generate.py --prompt "The image of a woman with blonde hair and purple eyes"
+# Run the script with args
+# It will dump an image during generation at every 5th step by default
+python clip_generate.py 
+# ARGUMENTS: --prompt="XXXX" --lr=1e-2 --img_save_freq=5
+
+# To make a video run, where you replace X with video_name and the folder of the generated images.
+ python create_video.py
+ # ARGUMENTS: --video_name="XXXX" --image_folder=./generations/XXXXXXXX
