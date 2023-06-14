@@ -1,0 +1,28 @@
+################################
+##### GUIDE FOR VQGAN CLIP #####
+################################
+# This is a step by step guide in terminal code for VQGAN CLIP.
+
+# First we make a NEW virtual environment in your folder of choice. Make sure to not be in your other venv by writing 'deactivate'.
+module load python3/3.8.14
+module load cuda/11.0
+
+# You can name it anything you want, I named it CLIPvenv
+python3 -m venv CLIPvenv
+
+source CLIPvenv/bin/activate
+
+# Make a requirements.txt file and paste the following into it:
+    CLIP @ git+https://github.com/openai/CLIP.git
+    ftfy==5.8
+    opencv-python==4.5.1.48
+    regex==2020.11.13
+    torch==1.7.1
+    tqdm==4.56.0
+
+# Run it and make sure you have compatible torch and CUDA components 
+pip3 install -r requirements.txt
+pip3 install torch==1.7.1+cu110 torchvision==0.8.2+cu110 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+
+# Run the script with prompt.
+python clip_generate.py --prompt "The image of a woman with blonde hair and purple eyes"
