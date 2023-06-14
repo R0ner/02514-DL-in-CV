@@ -12,6 +12,16 @@ loss_functions=("bce_loss" "dice_loss" "bce_total_variation")
 # Set your CUDA device here
 export CUDA_VISIBLE_DEVICES=1
 
+# Set the flag to decide whether to use data augmentation or not
+use_data_augmentation=false
+
+# Check if data augmentation flag is set
+if [ "$use_data_augmentation" = true ]; then
+  data_augmentation_flag="--data_augmentation"
+else
+  data_augmentation_flag=""
+fi
+
 # Loop over the models
 for model in ${models[@]}; do
 
@@ -25,8 +35,8 @@ for model in ${models[@]}; do
       python main.py \
         --n_features 16 \
         --model_type ${model} \
-        --data_augmentation \
-        --batch_size 64 \
+        ${data_augmentation_flag} \
+        --batch_size 32 \
         --num_workers 8 \
         --optimizer_type ${optimizer} \
         --lr_scheduler reducelronplateau \
