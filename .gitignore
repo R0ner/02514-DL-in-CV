@@ -162,3 +162,4 @@ cython_debug/
 models
 zips
 figs
+stylegan2-ada-pytorch
