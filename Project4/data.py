@@ -82,9 +82,9 @@ class WasteSet(dset.CocoDetection):
 
 def get_waste(batch_size: int, num_workers: int = 8, data_augmentation: bool = True, supercategories: bool = True):
     transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset = WasteSet(data_path, annotation_file, 'train', supercategories=supercategories)
-    val_dataset = WasteSet(data_path, annotation_file, 'val', supercategories=supercategories)
-    test_dataset = WasteSet(data_path, annotation_file, 'test', supercategories=supercategories)
+    train_dataset = WasteSet(data_path, annotation_file, 'train', transform=transform, supercategories=supercategories)
+    val_dataset = WasteSet(data_path, annotation_file, 'val', transform=transform, supercategories=supercategories)
+    test_dataset = WasteSet(data_path, annotation_file, 'test', transform=transform, supercategories=supercategories)
     
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
