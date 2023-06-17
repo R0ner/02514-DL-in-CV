@@ -1,7 +1,22 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon, Rectangle
+
+
+def get_split():
+    np.random.seed(1915)
+    idx = np.arange(1500)
+    np.random.shuffle(idx)
+
+    split = {}
+    # 15 % validation and test
+    split['val'] = idx[:225].tolist()
+    split['test'] = idx[225:450].tolist()
+    split['train'] = idx[450:].tolist()
+    with open('Project4/split.json', "w") as f:
+        json.dump(split, f, indent=6)
 
 
 def show_annotation(anns, ax, supercategories=True):

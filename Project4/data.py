@@ -13,11 +13,13 @@ from torch.utils.data import DataLoader
 data_path = '/dtu/datasets1/02514/data_wastedetection'
 annotation_file = os.path.join(data_path, 'annotations.json')
 
+
 class WasteSet(dset.CocoDetection):
     def __init__(
             self,
             root: str,
             annFile: str,
+            split: str,
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
             transforms: Optional[Callable] = None,
@@ -74,9 +76,10 @@ class WasteSet(dset.CocoDetection):
 
 
 def get_waste(batch_size: int, num_workers: int = 8, data_augmentation: bool = True, supercategories: bool = True):
-    train_dataset = WasteSet(data_path, annotation_file, supercategories=supercategories)
-    val_dataset = WasteSet(data_path, annotation_file, supercategories=supercategories)
-    test_dataset = WasteSet(data_path, annotation_file, supercategories=supercategories)
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_dataset = WasteSet(data_path, annotation_file, 'train', supercategories=supercategories)
+    val_dataset = WasteSet(data_path, annotation_file, 'val', supercategories=supercategories)
+    test_dataset = WasteSet(data_path, annotation_file, 'test', supercategories=supercategories)
     
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -84,7 +87,7 @@ def get_waste(batch_size: int, num_workers: int = 8, data_augmentation: bool = T
                               num_workers=num_workers)
     val_loader = DataLoader(val_dataset,
                             batch_size=batch_size,
-                            shuffle=True,
+                            shuffle=False,
                             num_workers=num_workers)
     test_loader = DataLoader(test_dataset,
                              batch_size=batch_size,
