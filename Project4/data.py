@@ -1,12 +1,9 @@
 import os
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
-import numpy as np
-import torch
 import json
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
-from PIL import Image
 from pycocotools.coco import COCO
 from torch.utils.data import DataLoader
 
