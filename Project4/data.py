@@ -3,6 +3,7 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import torch
+import json
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from PIL import Image
@@ -29,13 +30,20 @@ class WasteSet(dset.CocoDetection):
         self.coco = COCO(annFile)
         self.ids = list(sorted(self.coco.imgs.keys()))
         self.supercategories = supercategories
+        
+        # Get ids pertiaining to split.
+        with open(os.path.join(os.getcwd(), 'split.json'), 'r') as f:
+            split_idx = json.loads(f.read())
+        self.ids = [self.ids[i] for i in split_idx[split]]
 
         if not self.supercategories:
+            # Category names.
             self.cat_names = tuple([cat['name'] for cat in self.coco.cats.values()])
         else:
+            # 'Unpack' supercategories
             self.cat_to_supcat = {} # Category to supercategory.
             self.supcat_to_cat = {} # Supercategory to category.
-            self.cat_names = list() # Category names.
+            self.cat_names = list() # Supercategory names.
             
             supcat_per_id = [cat['supercategory'] for cat in self.coco.cats.values()]
             last_supcat = ''
