@@ -116,8 +116,8 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         img = F.resized_crop(img, i, j, _h, _w, self.size, self.interpolation, antialias=self.antialias)
 
         _, h_resize, w_resize = F.get_dimensions(img)
-
-        for ann in target:
+        keep = []
+        for idx, ann in enumerate(target):
             (im_h, im_w) = ann['size']
             ann['size'] = (h_resize, w_resize)
             im_x0, im_y0, w_ratio, h_ratio = j / im_w, i / im_h, im_w / _w, im_h / _h 
@@ -131,6 +131,10 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
             else:
                 x0, y0, x1, y1 = max(x0, 0), max(y0, 0), min(x1, 1), min(y1, 1)
                 ann['bbox'] = [x0, y0, x1 - x0, y1 - y0]
+                keep.append(idx)
+        
+        # Discard 'out of bounds' boxes.
+        target = [target[idx] for idx in keep]
 
         return img, target
 
