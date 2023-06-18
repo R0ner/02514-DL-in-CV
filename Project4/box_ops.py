@@ -58,3 +58,28 @@ def nms(boxes, scores=None, iou_threshold=.5):
         order = order[remaining]
 
     return picked_boxes, picked_scores
+
+def compute_iou(b1, b2):
+    """
+    Args:
+        b1 and b2: bounding boxes with(x, y, w, h)
+    Returns:
+        IoU between b1 and b2 (float)
+    """
+    x1, y1, w1, h1 = b1
+    x2, y2, w2, h2 = b2
+    # compute the coordinates of the intersection rectangle
+    ix1 = max(x1, x2)
+    iy1 = max(y1, y2)
+    ix2 = min(x1 + w1, x2 + w2)
+    iy2 = min(y1 + h1, y2 + h2)
+
+    # If intersection is 0 return 0.
+    if ix2 - ix1 <= 0 or iy2 - iy1 <= 0:
+        return 0.0
+    
+    # Intesection area.
+    intersection = (ix2 - ix1) * (iy2 - iy1)
+    
+    # Intersection over union
+    return intersection / (w1*h1 + w2*h2 - intersection)
