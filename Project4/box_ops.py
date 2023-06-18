@@ -19,7 +19,7 @@ def nms(boxes, scores=None, iou_threshold=.5):
     if scores is None:
         scores = np.ones(boxes.shape[0])
     else:
-        scores = np.array(scores)
+        scores = np.array(scores).ravel()
 
     # Picked bounding boxes
     picked_boxes = []
