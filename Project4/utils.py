@@ -19,9 +19,11 @@ def get_split():
         json.dump(split, f, indent=6)
 
 
-def show_annotation(anns, ax, supercategories=True):
+def show_annotation(anns, ax, supercategories=True, names=None):
     n_cats = 28 if supercategories else 60
     cmap = get_cmap(n_cats)
+
+    text_kwargs = dict(ha='left', va='top', fontsize=4, color='k')
     for ann in anns:
         color = cmap(ann['category_id'])
         for seg in ann['segmentation']:
@@ -47,6 +49,9 @@ def show_annotation(anns, ax, supercategories=True):
                         alpha=0.7,
                         linestyle='--')
         ax.add_patch(rect)
+        if names is not None:
+            t = ax.text(x+50, y-75, names[ann['category_id']], text_kwargs)
+            t.set_bbox(dict(facecolor=color, edgecolor=(0,0,0,0)))
 
 
 def show_cmap(names):

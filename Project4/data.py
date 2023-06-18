@@ -67,6 +67,7 @@ class WasteSet(dset.CocoDetection):
                 self.supcat_to_cat[current_supcat_id].append(id)
             self.cat_names = tuple(self.cat_names)
 
+            # Set category ids to supercategories.
             for index in range(len(self)):
                 id = self.ids[index]
                 target = self._load_target(id)
