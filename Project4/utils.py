@@ -23,7 +23,7 @@ def show_annotation(anns, ax, supercategories=True, names=None):
     n_cats = 28 if supercategories else 60
     cmap = get_cmap(n_cats)
 
-    text_kwargs = dict(ha='left', va='top', fontsize=5, color='k')
+    text_kwargs = dict(ha='left', va='bottom', fontsize=4, color='k')
     for ann in anns:
         im_h, im_w = ann['size']
         color = cmap(ann['category_id'])
@@ -44,15 +44,15 @@ def show_annotation(anns, ax, supercategories=True, names=None):
         rect = Rectangle((x * im_w, y * im_h),
                         w * im_w,
                         h * im_h,
-                        linewidth=2,
+                        linewidth=1.5,
                         edgecolor=color,
                         facecolor='none',
                         alpha=0.7,
                         linestyle='--')
         ax.add_patch(rect)
         if names is not None:
-            t = ax.text(x * im_w + (0.015 * im_w), y * im_h - (0.02 * im_h), names[ann['category_id']], text_kwargs)
-            t.set_bbox(dict(facecolor=color, edgecolor=(0,0,0,0)))
+            t = ax.text(x * im_w, y * im_h, names[ann['category_id']], text_kwargs)
+            t.set_bbox(dict(facecolor=color, edgecolor=(0,0,0,0), pad=.5))
 
 
 def show_cmap(names):

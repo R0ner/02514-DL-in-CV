@@ -16,7 +16,7 @@ def get_resnet(n_layers, n_classes):
         model = tvm.resnet18(weights=tvm.ResNet101_Weights.DEFAULT) #Most up to date weights
     if n_layers == 152:
         model = tvm.resnet18(weights=tvm.ResNet152_Weights.DEFAULT) #Most up to date weights
-        
+
     num_features = model.fc.in_features
     model.fc = nn.Linear(num_features, n_classes)
     
