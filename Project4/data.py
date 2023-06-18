@@ -1,9 +1,10 @@
 import os
 from typing import Any, Callable, Optional, Tuple
 
+import copy
 import json
 import torchvision.datasets as dset
-import torchvision.transforms as transforms
+import CocoTransforms as T
 from pycocotools.coco import COCO
 from torch.utils.data import DataLoader
 
@@ -12,11 +13,12 @@ data_path = '/dtu/datasets1/02514/data_wastedetection'
 annotation_file = os.path.join(data_path, 'annotations.json')
 
 # Standardization is done according to training set (mean and std. for the training set)
-standardize = transforms.Normalize([0.4960, 0.4689, 0.4142], [0.2168, 0.2089, 0.2018])
-standardize_inv = transforms.Compose([
-    transforms.Normalize([0, 0, 0], [1 / 0.2168, 1 / 0.2089, 1 / 0.2018]),
-    transforms.Normalize([-0.4960, -0.4689, -0.4142], [1, 1, 1])
+standardize = T.Normalize([0.4960, 0.4689, 0.4142], [0.2168, 0.2089, 0.2018])
+standardize_inv = T.Compose([
+    T.Normalize([0, 0, 0], [1 / 0.2168, 1 / 0.2089, 1 / 0.2018]),
+    T.Normalize([-0.4960, -0.4689, -0.4142], [1, 1, 1])
 ])
+
 
 class WasteSet(dset.CocoDetection):
     """'transform' pertains to images, 'target_transform' pertains to targets, and 'transforms' pertains to both images and targets."""
@@ -39,6 +41,18 @@ class WasteSet(dset.CocoDetection):
         with open(os.path.join(os.getcwd(), 'split.json'), 'r') as f:
             split_idx = json.loads(f.read())
         self.ids = [self.ids[i] for i in split_idx[split]]
+
+        # Get width and height and normalize bboxes
+        for index in range(len(self)):
+            id = self.ids[index]
+            target = self._load_target(id)
+            for ann in target:
+                im_info = self.coco.imgs[ann['image_id']]
+                im_h, im_w = (im_info['height'], im_info['width'])
+                ann['orig_size'] = (im_h, im_w)
+                x, y, w, h = ann['bbox']
+                ann['bbox_orig'] = [x, y, w, h]
+                ann['bbox'] = [x / im_w, y / im_h, w / im_w, h / im_h]
 
         if not self.supercategories:
             # Category names.
@@ -78,7 +92,7 @@ class WasteSet(dset.CocoDetection):
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         id = self.ids[index]
         image = self._load_image(id)
-        target = self._load_target(id)
+        target = copy.deepcopy(self._load_target(id))
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
@@ -90,21 +104,32 @@ def get_waste(batch_size: int,
               num_workers: int = 8,
               data_augmentation: bool = True,
               supercategories: bool = True):
-    transform = transforms.Compose([transforms.ToTensor(), standardize])
-    train_dataset = WasteSet(data_path,
-                             annotation_file,
-                             'train',
-                             transform=transform,
-                             supercategories=supercategories)
+    transforms = T.Compose([T.ToTensor(), standardize])
+    transforms_augment = T.Compose([
+        T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3),
+        T.RandomHorizontalFlip(), transforms
+    ])
+    if data_augmentation:
+        train_dataset = WasteSet(data_path,
+                                 annotation_file,
+                                 'train',
+                                 transforms=transforms_augment,
+                                 supercategories=supercategories)
+    else:
+        train_dataset = WasteSet(data_path,
+                                 annotation_file,
+                                 'train',
+                                 transforms=transforms,
+                                 supercategories=supercategories)
     val_dataset = WasteSet(data_path,
                            annotation_file,
                            'val',
-                           transform=transform,
+                           transform=transforms,
                            supercategories=supercategories)
     test_dataset = WasteSet(data_path,
                             annotation_file,
                             'test',
-                            transform=transform,
+                            transform=transforms,
                             supercategories=supercategories)
 
     train_loader = DataLoader(train_dataset,

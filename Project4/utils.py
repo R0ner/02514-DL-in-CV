@@ -25,24 +25,25 @@ def show_annotation(anns, ax, supercategories=True, names=None):
 
     text_kwargs = dict(ha='left', va='top', fontsize=4, color='k')
     for ann in anns:
+        im_h, im_w = ann['orig_size']
         color = cmap(ann['category_id'])
-        for seg in ann['segmentation']:
-            poly = Polygon(np.array(seg).reshape((int(len(seg) / 2), 2)))
-            p = PatchCollection([poly],
-                                facecolor=color,
-                                edgecolors=color,
-                                linewidths=0,
-                                alpha=0.4)
-            ax.add_collection(p)
-            p = PatchCollection([poly],
-                                facecolor='none',
-                                edgecolors=color,
-                                linewidths=2)
-            ax.add_collection(p)
+        # for seg in ann['segmentation']:
+        #     poly = Polygon(np.array(seg).reshape((int(len(seg) / 2), 2)))
+        #     p = PatchCollection([poly],
+        #                         facecolor=color,
+        #                         edgecolors=color,
+        #                         linewidths=0,
+        #                         alpha=0.4)
+        #     ax.add_collection(p)
+        #     p = PatchCollection([poly],
+        #                         facecolor='none',
+        #                         edgecolors=color,
+        #                         linewidths=2)
+        #     ax.add_collection(p)
         [x, y, w, h] = ann['bbox']
-        rect = Rectangle((x, y),
-                        w,
-                        h,
+        rect = Rectangle((x * im_w, y * im_h),
+                        w * im_w,
+                        h * im_h,
                         linewidth=2,
                         edgecolor=color,
                         facecolor='none',
@@ -50,7 +51,7 @@ def show_annotation(anns, ax, supercategories=True, names=None):
                         linestyle='--')
         ax.add_patch(rect)
         if names is not None:
-            t = ax.text(x+50, y-75, names[ann['category_id']], text_kwargs)
+            t = ax.text(x * im_w + 50, y * im_h - 75, names[ann['category_id']], text_kwargs)
             t.set_bbox(dict(facecolor=color, edgecolor=(0,0,0,0)))
 
 
