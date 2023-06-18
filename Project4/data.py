@@ -13,8 +13,8 @@ annotation_file = os.path.join(data_path, 'annotations.json')
 
 # Standardization is done according to training set (mean and std. for the training set)
 standardize = transforms.Normalize([0.4960, 0.4689, 0.4142], [0.2168, 0.2089, 0.2018])
-standardize = transforms.Compose([
-    transforms.Normalize([0, 0, 0], [1 / 0.2168, 1 / 0.2089, 1 /  0.2018]),
+standardize_inv = transforms.Compose([
+    transforms.Normalize([0, 0, 0], [1 / 0.2168, 1 / 0.2089, 1 / 0.2018]),
     transforms.Normalize([-0.4960, -0.4689, -0.4142], [1, 1, 1])
 ])
 
@@ -67,15 +67,17 @@ class WasteSet(dset.CocoDetection):
                 self.supcat_to_cat[current_supcat_id].append(id)
             self.cat_names = tuple(self.cat_names)
 
+            for index in range(len(self)):
+                id = self.ids[index]
+                target = self._load_target(id)
+                for ann in target:
+                    catid = ann['category_id']
+                    ann['category_id'] = self.cat_to_supcat[catid]
+
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         id = self.ids[index]
         image = self._load_image(id)
         target = self._load_target(id)
-
-        if self.supercategories:
-            for ann in target:
-                catid = ann['category_id']
-                ann['category_id'] = self.cat_to_supcat[catid]
 
         if self.transforms is not None:
             image, target = self.transforms(image, target)
@@ -87,7 +89,7 @@ def get_waste(batch_size: int,
               num_workers: int = 8,
               data_augmentation: bool = True,
               supercategories: bool = True):
-    transform = transforms.Compose([transforms.ToTensor()])
+    transform = transforms.Compose([transforms.ToTensor(), standardize])
     train_dataset = WasteSet(data_path,
                              annotation_file,
                              'train',
