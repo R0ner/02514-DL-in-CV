@@ -50,6 +50,7 @@ class WasteSet(dset.CocoDetection):
                 im_info = self.coco.imgs[ann['image_id']]
                 im_h, im_w = (im_info['height'], im_info['width'])
                 ann['orig_size'] = (im_h, im_w)
+                ann['size'] = (im_h, im_w)
                 x, y, w, h = ann['bbox']
                 ann['bbox_orig'] = [x, y, w, h]
                 ann['bbox'] = [x / im_w, y / im_h, w / im_w, h / im_h]
@@ -106,6 +107,7 @@ def get_waste(batch_size: int,
               supercategories: bool = True):
     transforms = T.Compose([T.ToTensor(), standardize])
     transforms_augment = T.Compose([
+        T.Resize(256),
         T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3),
         T.RandomHorizontalFlip(), transforms
     ])
