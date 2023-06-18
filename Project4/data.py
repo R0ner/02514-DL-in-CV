@@ -5,6 +5,7 @@ import copy
 import json
 import torchvision.datasets as dset
 import CocoTransforms as T
+from torchvision.transforms import RandomChoice
 from pycocotools.coco import COCO
 from torch.utils.data import DataLoader
 
@@ -107,7 +108,7 @@ def get_waste(batch_size: int,
               supercategories: bool = True):
     transforms = T.Compose([T.ToTensor(), standardize])
     transforms_augment = T.Compose([
-        T.Resize(256),
+        RandomChoice([T.Resize(512), T.RandomResizedCrop(512, scale=(0.4, 1))], p=[0.8, 0.2]),
         T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3),
         T.RandomHorizontalFlip(), transforms
     ])

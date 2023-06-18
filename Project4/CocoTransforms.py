@@ -84,22 +84,54 @@ class Resize(transforms.Resize):
         """
         Args:
             img (PIL Image or Tensor): Image to be scaled.
+            target: COCO annotation
 
         Returns:
             PIL Image or Tensor: Rescaled image.
+            target: COCO annotation
         """
         img = F.resize(img, self.size, self.interpolation, self.max_size, self.antialias)
-        if not isinstance(img, torch.Tensor):
-            w_resize, h_resize = img.size
-        else:
-            C, h_resize, w_resize = img.shape
-        # print(h_resize, w_resize)
+        
+        _, h_resize, w_resize = F.get_dimensions(img)
+
         for ann in target:
-            im_h, im_w = ann['size']
             ann['size'] = (h_resize, w_resize)
-            
-            # x, y, w, h = ann['bbox']
-            # h_ratio, w_ratio = h_resize / im_h, w_resize / im_w
-            # ann['bbox'] = [x * w_ratio, y * h_ratio, w * w_ratio, h * h_ratio]
-            
+        
         return img, target
+
+class RandomResizedCrop(transforms.RandomResizedCrop):
+
+    def forward(self, img, target):
+        """
+        Args:
+            img (PIL Image or Tensor): Image to be cropped and resized.
+            target: COCO annotation
+
+        Returns:
+            PIL Image or Tensor: Randomly cropped and resized image.
+            target: COCO annotation
+        """
+        i, j, _h, _w = self.get_params(img, self.scale, self.ratio)
+        
+        img = F.resized_crop(img, i, j, _h, _w, self.size, self.interpolation, antialias=self.antialias)
+
+        _, h_resize, w_resize = F.get_dimensions(img)
+
+        for ann in target:
+            (im_h, im_w) = ann['size']
+            ann['size'] = (h_resize, w_resize)
+            im_x0, im_y0, w_ratio, h_ratio = j / im_w, i / im_h, im_w / _w, im_h / _h 
+
+            x0, y0, w, h = ann['bbox']
+            x1, y1 = x0 + w, y0 + h
+
+            x0, x1, y0, y1 = (x0 - im_x0) * w_ratio, (x1 - im_x0) * w_ratio, (y0 - im_y0) * h_ratio, (y1 - im_y0) * h_ratio
+            if x1 < 0 or y1 < 0 or x0 > 1 or y0 > 1:
+                continue
+            else:
+                x0, y0, x1, y1 = max(x0, 0), max(y0, 0), min(x1, 1), min(y1, 1)
+                ann['bbox'] = [x0, y0, x1 - x0, y1 - y0]
+
+        return img, target
+
+transforms.RandomChoice
