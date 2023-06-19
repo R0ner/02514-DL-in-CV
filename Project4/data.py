@@ -1,13 +1,16 @@
+import copy
+import json
 import os
 from typing import Any, Callable, Optional, Tuple
 
-import copy
-import json
-import torchvision.datasets as dset
 import CocoTransforms as T
-from torchvision.transforms import RandomChoice
+import torch
+import torchvision.datasets as dset
+from PIL.ImageOps import exif_transpose
 from pycocotools.coco import COCO
 from torch.utils.data import DataLoader
+from torchvision.transforms import RandomChoice
+from torchvision.transforms.functional import get_dimensions
 
 # Paths
 data_path = '/dtu/datasets1/02514/data_wastedetection'
@@ -94,6 +97,7 @@ class WasteSet(dset.CocoDetection):
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         id = self.ids[index]
         image = self._load_image(id)
+        image = exif_transpose(image)
         target = copy.deepcopy(self._load_target(id))
 
         if self.transforms is not None:
@@ -101,6 +105,19 @@ class WasteSet(dset.CocoDetection):
 
         return image, target
 
+def waste_collate_fn(batch):
+
+    im_batch = []
+    target_batch = []
+    for im, target in batch:
+        im_batch.append(im)
+        
+        bboxes = torch.tensor([ann['bbox'] for ann in target])
+        category_ids = torch.tensor([ann['category_id'] for ann in target])
+        _, h, w = get_dimensions(im)
+        target_batch.append({'bboxes': bboxes, 'category_ids': category_ids, 'size': (h, w)})
+    
+    return im_batch, target_batch
 
 def get_waste(batch_size: int,
               num_workers: int = 8,
@@ -108,9 +125,9 @@ def get_waste(batch_size: int,
               supercategories: bool = True):
     transforms = T.Compose([T.ToTensor(), standardize])
     transforms_augment = T.Compose([
-        RandomChoice([T.Resize(512), T.RandomResizedCrop(512, scale=(0.4, 1))], p=[0.8, 0.2]),
-        T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3),
-        T.RandomHorizontalFlip(), transforms
+        T.RandomHorizontalFlip(p=0.5),
+        RandomChoice([T.Resize(512), T.RandomResizedCrop(512, scale=(0.4, 1))], p=[0, 1]),
+        T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3), transforms
     ])
     if data_augmentation:
         train_dataset = WasteSet(data_path,
@@ -138,13 +155,16 @@ def get_waste(batch_size: int,
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
                               shuffle=True,
-                              num_workers=num_workers)
+                              num_workers=num_workers,
+                              collate_fn=waste_collate_fn)
     val_loader = DataLoader(val_dataset,
                             batch_size=batch_size,
                             shuffle=False,
-                            num_workers=num_workers)
+                            num_workers=num_workers,
+                            collate_fn=waste_collate_fn)
     test_loader = DataLoader(test_dataset,
                              batch_size=batch_size,
                              shuffle=False,
-                             num_workers=num_workers)
+                             num_workers=num_workers,
+                             collate_fn=waste_collate_fn)
     return train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader
