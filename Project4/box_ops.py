@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def nms(boxes, scores=None, iou_threshold=.5):
     """https://github.com/amusi/Non-Maximum-Suppression/blob/master/nms.py"""
     # If no bounding boxes, return empty list
@@ -52,12 +53,14 @@ def nms(boxes, scores=None, iou_threshold=.5):
         intersection = w * h
 
         # Compute the ratio between intersection and union
-        ratio = intersection / (areas[index] + areas[order[:-1]] - intersection)
+        ratio = intersection / (areas[index] + areas[order[:-1]] -
+                                intersection)
 
         remaining = np.where(ratio < iou_threshold)
         order = order[remaining]
 
     return picked_boxes, picked_scores
+
 
 def compute_iou(b1, b2):
     """
@@ -77,9 +80,34 @@ def compute_iou(b1, b2):
     # If intersection is 0 return 0.
     if ix2 - ix1 <= 0 or iy2 - iy1 <= 0:
         return 0.0
-    
+
+    # Intesection area.
+    intersection = (ix2 - ix1) * (iy2 - iy1)
+
+    # Intersection over union
+    return intersection / (w1 * h1 + w2 * h2 - intersection)
+
+
+def compute_ious(box, boxes):
+    """Computes the IoU between 1 bbox 'box' (1, 4) and all bboxes in 'boxes' (n, 4)"""
+    x1, y1, w1, h1 = box
+    x2, y2, w2, h2 = boxes.T  # Assuming bboxes is a (n, 4) numpy array
+
+    # compute the coordinates of the intersection rectangle
+    ix1 = np.maximum(x1, x2)
+    iy1 = np.maximum(y1, y2)
+    ix2 = np.minimum(x1 + w1, x2 + w2)
+    iy2 = np.minimum(y1 + h1, y2 + h2)
+
     # Intesection area.
     intersection = (ix2 - ix1) * (iy2 - iy1)
     
     # Intersection over union
-    return intersection / (w1*h1 + w2*h2 - intersection)
+    ious = intersection / (w1 * h1 + w2 * h2 - intersection)
+    
+    # If intersection is 0 return 0.
+    mask = ((ix2 - ix1) <= 0)  | ((iy2 - iy1) <= 0)
+    
+    ious[mask] = 0
+
+    return ious 
