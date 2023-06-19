@@ -1,23 +1,37 @@
+import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.models as tvm
+from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
 
-def get_resnet(n_layers, n_classes):
-    supported = (18, 34, 50, 101, 152)
-    assert n_layers in supported, f"'n_layers' should be one of {supported}"
-
-    if n_layers == 18:
-        model = tvm.resnet18(weights=tvm.ResNet18_Weights.DEFAULT) #Most up to date weights
-    if n_layers == 34:
-        model = tvm.resnet18(weights=tvm.ResNet34_Weights.DEFAULT) #Most up to date weights
-    if n_layers == 50:
-        model = tvm.resnet18(weights=tvm.ResNet50_Weights.DEFAULT) #Most up to date weights
-    if n_layers == 101:
-        model = tvm.resnet18(weights=tvm.ResNet101_Weights.DEFAULT) #Most up to date weights
-    if n_layers == 152:
-        model = tvm.resnet18(weights=tvm.ResNet152_Weights.DEFAULT) #Most up to date weights
-
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, n_classes)
+class SimpleRCNN(nn.Module):
+    def __init__(self, n_layers, n_classes):
+        super(SimpleRCNN, self).__init__()
     
-    return model
+        self.pretrained = self.get_resnet(n_layers)
+        self.new_layers = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.Linear(512, n_classes)
+        )
+    
+    def forward(self, x):
+        x = self.pretrained(x)
+        x = self.new_layers(x)
+        return x
+
+    def get_resnet(self, n_layers):
+        supported = (18, 34, 50, 101, 152)
+        assert n_layers in supported, f"'n_layers' should be one of {supported}"
+
+        if n_layers == 18:
+            model = resnet18(pretrained=True) 
+        elif n_layers == 34:
+            model = resnet34(pretrained=True)
+        elif n_layers == 50:
+            model = resnet50(pretrained=True) 
+        elif n_layers == 101:
+            model = resnet101(pretrained=True)
+        elif n_layers == 152:
+            model = resnet152(pretrained=True)
+
+        # Dropping the final layer of the pre-trained model
+        model = nn.Sequential(*list(model.children())[:-1])  
+        return model

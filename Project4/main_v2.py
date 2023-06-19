@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 import cv2
 
-from model import get_resnet
+from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from data import get_waste
@@ -19,7 +19,8 @@ def set_args():
     parser.add_argument( "--n_classes", type=int, default=20, help="Number of classes in the data")
     parser.add_argument("--optimizer_type", type=str, default="adam", choices=["adam", "sgd"], help="Type of optimizer to use for training")
     parser.add_argument("--lr_scheduler",type=str,default="reducelronplateau",choices=["reducelronplateau", "expdecay"],help="Type of learning rate scheduler to use")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate for training")
+    parser.add_argument("--pretrained_lr", type=float, default=1e-5, help="Initial learning rate for training")
+    parser.add_argument("--new_layer_lr", type=float, default=1e-3, help="Initial learning rate for training")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to train for")
     parser.add_argument("--no_save", action="store_true", help="Whether to save the result or not")
     parser.add_argument("--batch_size", type=int, default=8, help="Number of images in each batch")
@@ -29,11 +30,17 @@ def set_args():
     return parser.parse_args()
        
 
-def get_optimizer(optim_type, model, lr):
+def get_optimizer(optim_type, model, pretrained_lr, new_layer_lr):
     if optim_type.lower() == "sgd":
-        return torch.optim.SGD(model.parameters(), lr=lr)
+        return torch.optim.SGD([
+            {'params': model.pretrained.parameters(), 'lr': pretrained_lr}, 
+            {'params': model.new_layers.parameters(), 'lr': new_layer_lr}
+        ])
     elif optim_type.lower() == "adam":
-        return torch.optim.Adam(model.parameters(), lr=lr)
+        return torch.optim.Adam([
+            {'params': model.pretrained.parameters(), 'lr': pretrained_lr}, 
+            {'params': model.new_layers.parameters(), 'lr': new_layer_lr}
+        ])
 
 def get_lr_scheduler(scheduler_type, optimizer):
     if scheduler_type.lower() == "reducelronplateau":
@@ -72,7 +79,7 @@ def train(model,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
     
     # Selective search module
-    ss = SelectiveSearch(mode='f', nkeep=200)
+    ss = SelectiveSearch(mode='f', nkeep=100)
 
     # Criterions for classification loss and regression loss
     criterion =  nn.CrossEntropyLoss()
@@ -86,11 +93,10 @@ def train(model,
         model.train()
         train_loss = []
         for data, target in tqdm(train_loader):
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
             
-            target_bboxes = torch.tensor([ann['category_id'] for ann in target])
-            target_labels = torch.tensor([ann['bbox'] for ann in target])
-            print(target_bboxes[0])
+            target_bboxes = torch.tensor([ann['category_id'] for ann in target], device=device)
+            target_labels = torch.tensor([ann['bbox'] for ann in target], device=device)
 
             # Get region proposals and preprocess them
             boxes = ss((np.moveaxis(data.numpy(), 0, 2) * 255).astype(np.uint8))
@@ -98,10 +104,20 @@ def train(model,
             # Train model for each region proposals
             batch_losses = []
             for box in boxes:
-                # Crop and resize to the dimensions that ResNet expects
-                proposal = cv2.resize(data[box[1]:box[1]+box[3], box[0]:box[0]+box[2]], (224, 224))
-                # Convert to torch tensor
-                proposal = torch.tensor(proposal).permute(2, 0, 1).unsqueeze(0).float() / 255
+                
+                x_start = max(0, box[0])
+                y_start = max(0, box[1])
+                x_end = min(data.shape[2], box[0] + box[2])
+                y_end = min(data.shape[1], box[1] + box[3])
+
+                cropped = data[:, y_start:y_end, x_start:x_end]
+                print("Cropped shape:", cropped.shape)
+
+                if isinstance(cropped, torch.Tensor):
+                    cropped = cropped.cpu().numpy()
+
+                proposal = cv2.resize(cropped.transpose(1,2,0), (224, 224))
+                proposal = torch.from_numpy(proposal).permute(2, 0, 1).unsqueeze(0).float() / 255
 
                 # Determine IoU with all ground truth bounding boxes
                 ious = compute_ious(box, target_bboxes)
@@ -149,8 +165,8 @@ def main():
     print(f'Using device:\t{device}')
 
     # Define model and optimizers
-    model = get_resnet(args.n_layers, args.n_classes)
-    optimizer = get_optimizer(args.optimizer_type, model, args.lr)
+    model = SimpleRCNN(args.n_layers, args.n_classes)
+    optimizer = get_optimizer(args.optimizer_type, model, args.pretrained_lr, args.new_layer_lr)
     lr_scheduler = get_lr_scheduler(args.lr_scheduler, optimizer)
 
     # Data loading
