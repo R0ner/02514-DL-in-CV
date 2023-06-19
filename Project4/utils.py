@@ -3,6 +3,7 @@ import numpy as np
 import json
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon, Rectangle
+import box_ops
 
 
 def get_split():
@@ -67,3 +68,31 @@ def get_cmap(n, name='hsv'):
     Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
     RGB color; the keyword argument name must be a standard mpl colormap name.'''
     return plt.cm.get_cmap(name, n)
+
+
+def filter_and_label_proposals(proposals_batch, targets):
+    max_proposals = 3
+    proposals_batch_labels = []
+    for i, target in enumerate(targets):
+        proposals = proposals_batch[i]
+        h, w = target['size']
+        if target['bboxes'].shape[0] == 0:
+            proposals = proposals[np.random.choice(proposals.shape[0], size=max_proposals, replace=False)]
+            proposal_labels = max_proposals * [0]
+        else:
+            proposal_labels = np.zeros(proposals.shape[0])
+            proposals_unit = proposals / np.array([w, h, w, h])
+            ious = np.stack([box_ops.compute_ious(box.numpy(), proposals_unit) for box in target['bboxes']])
+            mask = (ious > .5).any(axis=0)
+            ious_filter = ious[:, mask]
+            proposal_labels[mask] = target['category_ids'].numpy()[ious_filter.argmax(0)]
+        # Include all positives and 3/4 parts background.
+        include = np.where(proposal_labels != 0)[0]
+        include = np.where(proposal_labels == 0)[0][:max(3 * include.size, max_proposals)]
+        proposals = proposals[include]
+        proposal_labels = proposal_labels[include]
+        
+        proposals_batch[i] = proposals
+        proposals_batch_labels.append(proposal_labels)
+    
+    return proposals_batch, proposals_batch_labels
