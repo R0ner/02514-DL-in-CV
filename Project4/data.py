@@ -132,12 +132,11 @@ def get_waste(batch_size: int,
               num_workers: int = 8,
               data_augmentation: bool = True,
               supercategories: bool = True):
-    transforms = T.Compose([T.ToTensor(), standardize])
+    transforms = T.Compose([T.resize(512), T.ToTensor(), standardize])
     transforms_augment = T.Compose([
         T.RandomHorizontalFlip(p=0.5),
-        RandomChoice([T.Resize(512),
-                      T.RandomResizedCrop(512, scale=(0.4, 1))],
-                     p=[.8, .2]),
+        T.RandomApply([T.RandomResizedCrop(512, scale=(0.4, 1))],
+                     p=.2),
         T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3), transforms
     ])
     if data_augmentation:
