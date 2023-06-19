@@ -8,7 +8,6 @@ class SimpleRCNN(nn.Module):
     
         self.pretrained = self.get_resnet(n_layers)
         self.new_layers = nn.Sequential(
-            nn.Linear(2048, 512),
             nn.Linear(512, n_classes)
         )
     

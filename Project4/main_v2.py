@@ -7,6 +7,7 @@ import cv2
 
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
+from utils import filter_and_label_proposals
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from data import get_waste
 from tqdm import tqdm
@@ -55,7 +56,7 @@ def train(model,
         scheduler,
         num_epochs,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
-    
+
     # Selective search module
     ss = SelectiveSearch(mode='f', nkeep=100)
 
@@ -63,68 +64,33 @@ def train(model,
     criterion =  nn.CrossEntropyLoss()
     
     model.to(device)
-    out_dict = {"epoch": [], "train_loss_cls": [], "train_loss_reg": [], "lr": []} #TODO: what metrics should we track?
+    out_dict = {"epoch": [], "train_loss": [], "lr": []} 
     
     for epoch in range(num_epochs):
         print("* Epoch %d/%d" % (epoch + 1, num_epochs))
-        # Train
         model.train()
-        train_loss = []
-        for data, target in tqdm(train_loader):
-            data = data.to(device)
+        train_losses = []
+        for ims, targets in tqdm(train_loader):
+
+            proposals_batch = [ss((np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8)) for im in ims]
+
+            proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
+            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) for proposal_boxes, target in zip(proposals_batch, targets)]
+            y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) for proposal_labels, target in zip(proposals_batch_labels, targets)]))
             
-            target_bboxes = torch.tensor([ann['category_id'] for ann in target], device=device)
-            target_labels = torch.tensor([ann['bbox'] for ann in target], device=device)
 
-            # Get region proposals and preprocess them
-            boxes = ss((np.moveaxis(data.numpy(), 0, 2) * 255).astype(np.uint8))
             
-            # Train model for each region proposals
-            batch_losses = []
-            for box in boxes:
-                
-                x_start = max(0, box[0])
-                y_start = max(0, box[1])
-                x_end = min(data.shape[2], box[0] + box[2])
-                y_end = min(data.shape[1], box[1] + box[3])
+            optimizer.zero_grad()
+            output = model(proposals_batch)
+            loss = criterion(output, proposals_batch_labels)
+            loss.backward()
+            optimizer.step()
+            train_losses.append(loss.item())
 
-                cropped = data[:, y_start:y_end, x_start:x_end]
-                print("Cropped shape:", cropped.shape)
-
-                if isinstance(cropped, torch.Tensor):
-                    cropped = cropped.cpu().numpy()
-
-                proposal = cv2.resize(cropped.transpose(1,2,0), (224, 224))
-                proposal = torch.from_numpy(proposal).permute(2, 0, 1).unsqueeze(0).float() / 255
-
-                # Determine IoU with all ground truth bounding boxes
-                ious = compute_ious(box, target_bboxes)
-
-                # We define object as IoU >= 0.5, and background as IoU < 0.5
-                if ious.max() < 0.5:
-                    target_label = torch.tensor([0]) # Background
-                else:
-                    target_label = target_labels[ious.argmax()]
-                
-                # Move to GPU if available
-                proposal = proposal.to(device)
-                target_label = target_label.to(device)
-                
-                optimizer.zero_grad()
-                output = model(proposal)
-                loss = criterion(output, target_label)
-                loss.backward()
-                optimizer.step()
-                batch_losses.append(loss.item())
-
-            train_loss.append(np.mean(batch_losses))
-
-        # Save stats
-        avg_train_loss = sum(train_loss) / len(train_loss)
+        avg_train_loss = np.mean(train_losses)
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
-
 
         print(
             f"Epoch: {epoch}, ",
