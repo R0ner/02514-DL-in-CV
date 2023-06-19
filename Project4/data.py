@@ -46,7 +46,7 @@ class WasteSet(dset.CocoDetection):
             split_idx = json.loads(f.read())
         self.ids = [self.ids[i] for i in split_idx[split]]
 
-        # Get width and height and normalize bboxes
+        # Get width and height, normalize bboxes, and increment category_ids by 1 to account for background class.
         for index in range(len(self)):
             id = self.ids[index]
             target = self._load_target(id)
@@ -58,10 +58,12 @@ class WasteSet(dset.CocoDetection):
                 x, y, w, h = ann['bbox']
                 ann['bbox_orig'] = [x, y, w, h]
                 ann['bbox'] = [x / im_w, y / im_h, w / im_w, h / im_h]
+                ann['category_id'] += 1
 
         if not self.supercategories:
             # Category names.
             self.cat_names = tuple(
+                ['<background>'] +
                 [cat['name'] for cat in self.coco.cats.values()])
         else:
             # 'Unpack' supercategories
@@ -84,15 +86,15 @@ class WasteSet(dset.CocoDetection):
                 if current_supcat_id not in self.supcat_to_cat:
                     self.supcat_to_cat[current_supcat_id] = list()
                 self.supcat_to_cat[current_supcat_id].append(id)
-            self.cat_names = tuple(self.cat_names)
+            self.cat_names = tuple(['<background>'] + self.cat_names)
 
             # Set category ids to supercategories.
             for index in range(len(self)):
                 id = self.ids[index]
                 target = self._load_target(id)
                 for ann in target:
-                    catid = ann['category_id']
-                    ann['category_id'] = self.cat_to_supcat[catid]
+                    catid = ann['category_id'] - 1
+                    ann['category_id'] = self.cat_to_supcat[catid] + 1
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
         id = self.ids[index]
@@ -105,19 +107,25 @@ class WasteSet(dset.CocoDetection):
 
         return image, target
 
+
 def waste_collate_fn(batch):
 
     im_batch = []
     target_batch = []
     for im, target in batch:
         im_batch.append(im)
-        
+
         bboxes = torch.tensor([ann['bbox'] for ann in target])
         category_ids = torch.tensor([ann['category_id'] for ann in target])
         _, h, w = get_dimensions(im)
-        target_batch.append({'bboxes': bboxes, 'category_ids': category_ids, 'size': (h, w)})
-    
+        target_batch.append({
+            'bboxes': bboxes,
+            'category_ids': category_ids,
+            'size': (h, w)
+        })
+
     return im_batch, target_batch
+
 
 def get_waste(batch_size: int,
               num_workers: int = 8,
@@ -126,7 +134,9 @@ def get_waste(batch_size: int,
     transforms = T.Compose([T.ToTensor(), standardize])
     transforms_augment = T.Compose([
         T.RandomHorizontalFlip(p=0.5),
-        RandomChoice([T.Resize(512), T.RandomResizedCrop(512, scale=(0.4, 1))], p=[0, 1]),
+        RandomChoice([T.Resize(512),
+                      T.RandomResizedCrop(512, scale=(0.4, 1))],
+                     p=[.8, .2]),
         T.RandomApply([T.ColorJitter(.3, .3, .2, .06)], p=0.3), transforms
     ])
     if data_augmentation:
