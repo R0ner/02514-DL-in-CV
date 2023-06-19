@@ -119,7 +119,8 @@ def waste_collate_fn(batch):
         category_ids = torch.tensor([ann['category_id'] for ann in target])
         _, h, w = get_dimensions(im)
         target_batch.append({
-            'bboxes': bboxes,
+            'bboxes_unit': bboxes,
+            'bboxes': bboxes * torch.tensor([w, h, w, h]),
             'category_ids': category_ids,
             'size': (h, w)
         })

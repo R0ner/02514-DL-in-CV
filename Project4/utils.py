@@ -27,7 +27,7 @@ def show_annotation(anns, ax, supercategories=True, names=None):
     text_kwargs = dict(ha='left', va='bottom', fontsize=4, color='k')
     if isinstance(anns, dict):
         im_h, im_w = anns['size']
-        bboxes = [box.tolist() for box in anns['bboxes']]
+        bboxes = [box.tolist() for box in anns['bboxes_unit']]
         category_ids = [category_id.item() for category_id in anns['category_ids']]
     else:
         bboxes = []
@@ -70,27 +70,28 @@ def get_cmap(n, name='hsv'):
     return plt.cm.get_cmap(name, n)
 
 
-def filter_and_label_proposals(proposals_batch, targets, min_proposals=3):
-    
+def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
     proposals_batch_labels = []
     for i, target in enumerate(targets):
         proposals = proposals_batch[i]
         h, w = target['size']
         if target['bboxes'].shape[0] == 0:
             proposals = proposals[np.random.choice(proposals.shape[0], size=min_proposals, replace=False)]
-            proposal_labels = min_proposals * [0]
+            proposal_labels = np.array(min_proposals * [0])
         else:
             proposal_labels = np.zeros(proposals.shape[0])
-            proposals_unit = proposals / np.array([w, h, w, h])
-            ious = np.stack([box_ops.compute_ious(box.numpy(), proposals_unit) for box in target['bboxes']])
+            # proposals_unit = proposals / np.array([w, h, w, h])
+            ious = np.stack([box_ops.compute_ious(box.numpy(), proposals) for box in target['bboxes']])
             mask = (ious > .5).any(axis=0)
             ious_filter = ious[:, mask]
             proposal_labels[mask] = target['category_ids'].numpy()[ious_filter.argmax(0)]
-        # Include all positives and 3/4 parts background.
-        include = np.where(proposal_labels != 0)[0]
-        include = np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]
-        proposals = proposals[include]
-        proposal_labels = proposal_labels[include]
+            
+            # Include all positives and 3/4 parts background.
+            include = np.where(proposal_labels != 0)[0]
+            include = np.concatenate((include, np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]))
+            
+            proposals = proposals[include]
+            proposal_labels = proposal_labels[include]
         
         proposals_batch[i] = proposals
         proposals_batch_labels.append(proposal_labels)
