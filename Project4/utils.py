@@ -37,19 +37,6 @@ def show_annotation(anns, ax, supercategories=True, names=None):
             category_ids.append(ann['category_id'])
     for ((x,y,w,h), category_id) in zip(bboxes, category_ids):
         color = cmap(category_id)
-        # for seg in ann['segmentation']:
-        #     poly = Polygon(np.array(seg).reshape((int(len(seg) / 2), 2)))
-        #     p = PatchCollection([poly],
-        #                         facecolor=color,
-        #                         edgecolors=color,
-        #                         linewidths=0,
-        #                         alpha=0.4)
-        #     ax.add_collection(p)
-        #     p = PatchCollection([poly],
-        #                         facecolor='none',
-        #                         edgecolors=color,
-        #                         linewidths=2)
-        #     ax.add_collection(p)
         rect = Rectangle((x * im_w, y * im_h),
                         w * im_w,
                         h * im_h,
