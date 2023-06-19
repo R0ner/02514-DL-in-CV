@@ -1,5 +1,7 @@
 import cv2
 
+cv2.setUseOptimized(True)
+cv2.setNumThreads(8)
 class SelectiveSearch():
     def __init__(self, mode='f', nkeep=100):
         self.mode = mode
