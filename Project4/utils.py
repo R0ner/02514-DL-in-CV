@@ -20,7 +20,7 @@ def get_split():
 
 
 def show_annotation(anns, ax, supercategories=True, names=None):
-    n_cats = 28 if supercategories else 60
+    n_cats = 29 if supercategories else 61
     cmap = get_cmap(n_cats)
 
     text_kwargs = dict(ha='left', va='bottom', fontsize=4, color='k')
