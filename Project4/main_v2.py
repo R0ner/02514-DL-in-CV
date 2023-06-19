@@ -19,7 +19,7 @@ from torchvision.transforms import functional as Ft
 def set_args():
     parser = argparse.ArgumentParser(description="Object Detection Training Script")
     parser.add_argument("--n_layers", type=int, default=18, help="Number of layers on in the model")
-    parser.add_argument( "--n_classes", type=int, default=20, help="Number of classes in the data")
+    parser.add_argument( "--n_classes", type=int, default=29, help="Number of classes in the data")
     parser.add_argument("--optimizer_type", type=str, default="adam", choices=["adam", "sgd"], help="Type of optimizer to use for training")
     parser.add_argument("--lr_scheduler",type=str,default="reducelronplateau",choices=["reducelronplateau", "expdecay"],help="Type of learning rate scheduler to use")
     parser.add_argument("--pretrained_lr", type=float, default=1e-5, help="Initial learning rate for training")
@@ -84,13 +84,17 @@ def train(model,
                                                  for proposal_boxes, target in zip(proposals_batch, targets)]
             
             y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
-                                                  for proposal_labels, target in zip(proposals_batch_labels, targets)])
-                                                  ,device=device)
+                                                  for proposal_labels, target in zip(proposals_batch_labels, targets)]))
             
-            X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
-            random.shuffle(X)
-            X = torch.stack(X, device=device)
+            print(y_true.min(), y_true.max())
+            #X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
+            #random.shuffle(X)
+            #X = torch.stack(X).to(device)
+            X = torch.stack([resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes])
 
+            X = X.to(device)
+            y_true = y_true.to(device)
+            y_true = y_true.long()
             
             optimizer.zero_grad()
             output = model(X)
