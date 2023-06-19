@@ -48,28 +48,6 @@ def get_lr_scheduler(scheduler_type, optimizer):
     elif scheduler_type.lower() == "expdecay":
         return ExponentialLR(optimizer, gamma=0.1)
 
-def compute_ious(proposal, bboxes):
-    x1, y1, w1, h1 = proposal
-    x2, y2, w2, h2 = bboxes.T  # Assuming bboxes is a (n, 4) numpy array
-
-    # Compute coordinates of intersection rectangle
-    x_left = np.maximum(x1, x2)
-    y_top = np.maximum(y1, y2)
-    x_right = np.minimum(x1 + w1, x2 + w2)
-    y_bottom = np.minimum(y1 + h1, y2 + h2)
-
-    # Compute area of intersection
-    intersection_area = np.maximum(0, x_right - x_left + 1) * np.maximum(0, y_bottom - y_top + 1)
-
-    # Compute areas of bounding boxes
-    proposal_area = w1 * h1
-    bboxes_area = w2 * h2
-
-    # Compute IoU
-    ious = intersection_area / (proposal_area + bboxes_area - intersection_area)
-
-    return ious
-
 def train(model, 
         optimizer,
         train_loader,
