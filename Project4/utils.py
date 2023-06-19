@@ -70,15 +70,15 @@ def get_cmap(n, name='hsv'):
     return plt.cm.get_cmap(name, n)
 
 
-def filter_and_label_proposals(proposals_batch, targets):
-    max_proposals = 3
+def filter_and_label_proposals(proposals_batch, targets, min_proposals=3):
+    
     proposals_batch_labels = []
     for i, target in enumerate(targets):
         proposals = proposals_batch[i]
         h, w = target['size']
         if target['bboxes'].shape[0] == 0:
-            proposals = proposals[np.random.choice(proposals.shape[0], size=max_proposals, replace=False)]
-            proposal_labels = max_proposals * [0]
+            proposals = proposals[np.random.choice(proposals.shape[0], size=min_proposals, replace=False)]
+            proposal_labels = min_proposals * [0]
         else:
             proposal_labels = np.zeros(proposals.shape[0])
             proposals_unit = proposals / np.array([w, h, w, h])
@@ -88,7 +88,7 @@ def filter_and_label_proposals(proposals_batch, targets):
             proposal_labels[mask] = target['category_ids'].numpy()[ious_filter.argmax(0)]
         # Include all positives and 3/4 parts background.
         include = np.where(proposal_labels != 0)[0]
-        include = np.where(proposal_labels == 0)[0][:max(3 * include.size, max_proposals)]
+        include = np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]
         proposals = proposals[include]
         proposal_labels = proposal_labels[include]
         
