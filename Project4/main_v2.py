@@ -6,6 +6,8 @@ import numpy as np
 import cv2
 import torchvision.transforms as transforms
 import random
+import torch.multiprocessing as mp
+from torch.cuda.amp import autocast, GradScaler
 
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
@@ -60,7 +62,7 @@ def train(model,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
 
     # Resize transform
-    resize = transforms.Resize((256, 256))
+    resize = transforms.Resize((256, 256), antialias=True)
 
     # Selective search module
     ss = SelectiveSearch(mode='f', nkeep=100)
@@ -71,13 +73,21 @@ def train(model,
     model.to(device)
     out_dict = {"epoch": [], "train_loss": [], "lr": []} 
     
+    # Parallel processing
+    pool = mp.Pool(mp.cpu_count())
+
+    # Mixed precision
+    scaler = GradScaler()
+
     for epoch in range(num_epochs):
         print("* Epoch %d/%d" % (epoch + 1, num_epochs))
         model.train()
         train_losses = []
-        for ims, targets in tqdm(train_loader):
+        print_loss_total = 0  # Reset every print_every
+        for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
-            proposals_batch = [ss((np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8)) for im in ims]
+            #proposals_batch = [ss((np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8)) for im in ims]
+            proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
             proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
             boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) 
@@ -86,7 +96,6 @@ def train(model,
             y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
                                                   for proposal_labels, target in zip(proposals_batch_labels, targets)]))
             
-            print(y_true.min(), y_true.max())
             #X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
             #random.shuffle(X)
             #X = torch.stack(X).to(device)
@@ -97,11 +106,23 @@ def train(model,
             y_true = y_true.long()
             
             optimizer.zero_grad()
-            output = model(X)
-            loss = criterion(output, y_true)
-            loss.backward()
-            optimizer.step()
+            with autocast():
+                output = model(X)
+                loss = criterion(output, y_true)
+
+            #loss.backward()
+            #optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
             train_losses.append(loss.item())
+
+            print_loss_total += loss.item()
+            if (i + 1) % 10 == 0:
+                print_loss_avg = print_loss_total / 10
+                print_loss_total = 0
+                print(f"[{i+1}] Average loss: {print_loss_avg:.2f}")
 
         avg_train_loss = np.mean(train_losses)
         out_dict["epoch"].append(epoch)
