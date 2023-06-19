@@ -133,7 +133,7 @@ def train(model,
 
 
         print(
-            f"Epoch: {epoch}, "
+            f"Epoch: {epoch}, ",
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
