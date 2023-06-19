@@ -137,5 +137,3 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         target = [target[idx] for idx in keep]
 
         return img, target
-
-transforms.RandomChoice
