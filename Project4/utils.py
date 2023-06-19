@@ -24,9 +24,19 @@ def show_annotation(anns, ax, supercategories=True, names=None):
     cmap = get_cmap(n_cats)
 
     text_kwargs = dict(ha='left', va='bottom', fontsize=4, color='k')
-    for ann in anns:
-        im_h, im_w = ann['size']
-        color = cmap(ann['category_id'])
+    if isinstance(anns, dict):
+        im_h, im_w = anns['size']
+        bboxes = [box.tolist() for box in anns['bboxes']]
+        category_ids = [category_id.item() for category_id in anns['category_ids']]
+    else:
+        bboxes = []
+        category_ids = []
+        for ann in anns:
+            im_h, im_w = ann['size']
+            bboxes.append(ann['bbox'])
+            category_ids.append(ann['category_id'])
+    for ((x,y,w,h), category_id) in zip(bboxes, category_ids):
+        color = cmap(category_id)
         # for seg in ann['segmentation']:
         #     poly = Polygon(np.array(seg).reshape((int(len(seg) / 2), 2)))
         #     p = PatchCollection([poly],
@@ -40,7 +50,6 @@ def show_annotation(anns, ax, supercategories=True, names=None):
         #                         edgecolors=color,
         #                         linewidths=2)
         #     ax.add_collection(p)
-        [x, y, w, h] = ann['bbox']
         rect = Rectangle((x * im_w, y * im_h),
                         w * im_w,
                         h * im_h,
@@ -51,7 +60,7 @@ def show_annotation(anns, ax, supercategories=True, names=None):
                         linestyle='--')
         ax.add_patch(rect)
         if names is not None:
-            t = ax.text(x * im_w, y * im_h, names[ann['category_id']], text_kwargs)
+            t = ax.text(x * im_w, y * im_h, names[category_id], text_kwargs)
             t.set_bbox(dict(facecolor=color, edgecolor=(0,0,0,0), pad=.5))
 
 
