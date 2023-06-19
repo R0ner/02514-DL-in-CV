@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import cv2
+import torchvision.transforms as transforms
+import random
 
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
@@ -57,6 +59,9 @@ def train(model,
         num_epochs,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
 
+    # Resize transform
+    resize = transforms.Resize((256, 256))
+
     # Selective search module
     ss = SelectiveSearch(mode='f', nkeep=100)
 
@@ -75,14 +80,21 @@ def train(model,
             proposals_batch = [ss((np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8)) for im in ims]
 
             proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
-            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) for proposal_boxes, target in zip(proposals_batch, targets)]
-            y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) for proposal_labels, target in zip(proposals_batch_labels, targets)]))
+            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) 
+                                                 for proposal_boxes, target in zip(proposals_batch, targets)]
             
+            y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
+                                                  for proposal_labels, target in zip(proposals_batch_labels, targets)])
+                                                  ,device=device)
+            
+            X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
+            random.shuffle(X)
+            X = torch.stack(X, device=device)
 
             
             optimizer.zero_grad()
-            output = model(proposals_batch)
-            loss = criterion(output, proposals_batch_labels)
+            output = model(X)
+            loss = criterion(output, y_true)
             loss.backward()
             optimizer.step()
             train_losses.append(loss.item())
