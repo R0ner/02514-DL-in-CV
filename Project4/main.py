@@ -1,22 +1,18 @@
 import argparse
+import json
+
+import numpy as np
 import torch
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import cv2
 import torchvision.transforms as transforms
-import random
-import torch.multiprocessing as mp
-
+from data import get_waste
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
-from utils import label_proposals
-# from visualize import plot_learning_curves
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
-from data import get_waste
 from tqdm import tqdm
-from torchvision.transforms import functional as Ft
-from torch.cuda.amp import autocast, GradScaler
+from utils import label_proposals
 
 
 def set_args():
@@ -33,6 +29,7 @@ def set_args():
     parser.add_argument("--num_workers", type=int, default=8, help="Number of workers to use for data loading")
     parser.add_argument("--data_augmentation", action="store_true", help="Whether to use data augmentation or not")
     parser.add_argument("--supercategories", action="store_true", help="Whether to use super categories")
+    parser.add_argument("--save", action="store_true", help="Whether the model will be saved or not")
     return parser.parse_args()
        
 
@@ -61,8 +58,11 @@ def train(model,
         scheduler,
         num_epochs,
         in_batch_size=32,
-        device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
-
+        device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
+        args=None):
+    
+    model_key = ''.join([str(num) for num in np.random.randint(0, 9, size=4)])
+    model_name = f'resnet{args.n_layers}_{model_key}'
     # Resize transform
     resize = transforms.Resize((256, 256), antialias=True)
 
@@ -73,7 +73,7 @@ def train(model,
     criterion =  nn.CrossEntropyLoss()
     
     model.to(device)
-    out_dict = {"epoch": [], "train_loss": [], "val_loss": [], "lr": []} 
+    out_dict = {"epoch": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": [], "lr": []} 
     
     # Parallel processing
     pool = mp.Pool(mp.cpu_count())
@@ -217,7 +217,7 @@ def train(model,
                 print_loss_total = 0
                 print_val_correct = 0
 
-        avg_val_loss = np.mean(val_losses)
+        avg_val_loss = np.mean(val_losses).item()
 
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
@@ -233,6 +233,20 @@ def train(model,
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
+        if args is not None:
+            if args.save:
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'args': args,
+                    'epoch': epoch
+                    }, 'Project4/models/{model_name}_stats.pt')
+                # Stats
+                save_path = f"'Project4/models/{model_name}.json"
+                print(f"Saving training stats to:\t{save_path}")
+
+                with open(save_path, "w") as f:
+                    json.dump(out_dict, f, indent=6)
     return out_dict
 
 
@@ -267,7 +281,8 @@ def main():
         train_loader,
         val_loader,
         scheduler=lr_scheduler,
-        num_epochs = args.num_epochs
+        num_epochs = args.num_epochs,
+        args=args
     )
     print("Done!")
 
