@@ -161,12 +161,12 @@ def get_waste(batch_size: int,
     val_dataset = WasteSet(data_path,
                            annotation_file,
                            'val',
-                           transform=transforms,
+                           transforms=transforms,
                            supercategories=supercategories)
     test_dataset = WasteSet(data_path,
                             annotation_file,
                             'test',
-                            transform=transforms,
+                            transforms=transforms,
                             supercategories=supercategories)
 
     train_loader = DataLoader(train_dataset,
