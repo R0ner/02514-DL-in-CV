@@ -88,19 +88,19 @@ def train(model,
         print_loss_total = 0  # Reset every print_every
         for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
-            #proposals_batch = [ss((np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8)) for im in ims]
+            # Get object proposals for all images in the batch
             proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
+            # Get labels and subsample the region proposals for training purposes
             proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
             boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).astype(int) 
                                                  for proposal_boxes, target in zip(proposals_batch, targets)]
+            
+            # Labels
             y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
                                                   for proposal_labels, target in zip(proposals_batch_labels, targets)]))
             
-            #X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
-            #random.shuffle(X)
-            #X = torch.stack(X).to(device)¨
-            # print(*[boxes for boxes in boxes_batch])
+            # Crop out proposals and resize.
             X = []
             valid = []
             idx = 0
@@ -116,8 +116,6 @@ def train(model,
             X = torch.stack(X)
             y_true = y_true[torch.tensor(valid)]
 
-            # X = torch.stack([resize.forward(im[:, y:y+max(h, 2), x:x+max(w, 2)]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes])
-            #print(X.size())
             shuffle = torch.randperm(y_true.size(0))
 
             for j in range(shuffle.size(0) // in_batch_size + bool(shuffle.size(0) % in_batch_size)):
@@ -133,19 +131,12 @@ def train(model,
                 loss = criterion(output, y_batch_true)
                 loss.backward()
                 optimizer.step()
-                # with autocast():
-                #     output = model(X_batch)
-                #     loss = criterion(output, y_batch_true)
-
                 
-                # scaler.scale(loss).backward()
-                # scaler.step(optimizer)
-                # scaler.update()
                 
                 train_losses.append(loss.item())
-
-                # print("Batch loss: {loss.item():.2f}")
+                
                 print_loss_total += loss.item()
+                
 
             print_loss_avg = print_loss_total / (j + 1)
             print(f"Average loss: {print_loss_avg:.2f}")
