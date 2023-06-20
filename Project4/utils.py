@@ -90,12 +90,15 @@ def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
             include = np.where(proposal_labels != 0)[0]
             include = np.concatenate((include, np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]))
             
-            # Filter proposals to only include those with non-zero width and height.
             proposals = proposals[include]
-            non_zero_dims = (proposals[:,2] > proposals[:,0]) & (proposals[:,3] > proposals[:,1])
-            proposals = proposals[non_zero_dims]
-            proposal_labels = proposal_labels[include][non_zero_dims]
+            proposal_labels = proposal_labels[include]
         
+        # TODO: validate -> filter out proposals with zero width or height right after creation
+        valid_dims = (proposals[:, 2] > proposals[:, 0]) & (proposals[:, 3] > proposals[:, 1])
+        proposals = proposals[valid_dims]
+        proposal_labels = proposal_labels[valid_dims]
+
+
         proposals_batch[i] = proposals
         proposals_batch_labels.append(proposal_labels)
     

@@ -7,15 +7,16 @@ import cv2
 import torchvision.transforms as transforms
 import random
 import torch.multiprocessing as mp
-from torch.cuda.amp import autocast, GradScaler
 
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
 from utils import filter_and_label_proposals
+from visualize import plot_learning_curves
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from data import get_waste
 from tqdm import tqdm
 from torchvision.transforms import functional as Ft
+from torch.cuda.amp import autocast, GradScaler
 
 
 def set_args():
@@ -71,7 +72,7 @@ def train(model,
     criterion =  nn.CrossEntropyLoss()
     
     model.to(device)
-    out_dict = {"epoch": [], "train_loss": [], "lr": []} 
+    out_dict = {"epoch": [], "train_loss": [], "val_loss": [], "lr": []} 
     
     # Parallel processing
     pool = mp.Pool(mp.cpu_count())
@@ -125,12 +126,46 @@ def train(model,
                 print(f"[{i+1}] Average loss: {print_loss_avg:.2f}")
 
         avg_train_loss = np.mean(train_losses)
+
+        # Validation phase
+        model.eval()
+        val_losses = []
+        for ims, targets in tqdm(val_loader):
+
+            # Selective search with multiprocessing
+            proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims])
+
+            proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
+            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) 
+                           for proposal_boxes, target in zip(proposals_batch, targets)]
+            
+            y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
+                                                  for proposal_labels, target in zip(proposals_batch_labels, targets)]))
+            
+            # Below is a temporary fix for when bounding boxes has zero height or width
+            X = torch.stack([resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes])
+            X = X.to(device)
+
+            y_true = y_true.to(device)
+            y_true = y_true.long()
+
+            with torch.no_grad(), autocast():
+                output = model(X)
+                loss = criterion(output, y_true)
+            
+            val_losses.append(loss.item())
+
+        avg_val_loss = np.mean(val_losses)
+
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
+        out_dict["val_loss"].append(avg_val_loss)
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
 
         print(
             f"Epoch: {epoch}, ",
+            f"Training Loss: {avg_train_loss:.4f}, ",
+            f"Validation Loss: {avg_val_loss:.4f}, ",
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
@@ -171,6 +206,7 @@ def main():
     )
     print("Done!")
 
+    plot_learning_curves(out_dict)
 
 
 if __name__ == '__main__':
