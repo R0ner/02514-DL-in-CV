@@ -31,6 +31,8 @@ def set_args():
     parser.add_argument("--data_augmentation", action="store_true", help="Whether to use data augmentation or not")
     parser.add_argument("--supercategories", action="store_true", help="Whether to use super categories")
     parser.add_argument("--save", action="store_true", help="Whether the model will be saved or not")
+    parser.add_argument("--early_stopping", action="store_true", help="Whether to use early stopping or not")
+    parser.add_argument("--early_stopping_patience", type=int, default=5, help="Number of patience epochs for early stopping")
     return parser.parse_args()
        
 
@@ -48,7 +50,7 @@ def get_optimizer(optim_type, model, pretrained_lr, new_layer_lr):
 
 def get_lr_scheduler(scheduler_type, optimizer):
     if scheduler_type.lower() == "reducelronplateau":
-        return ReduceLROnPlateau(optimizer, patience=9)
+        return ReduceLROnPlateau(optimizer, patience=3)
     elif scheduler_type.lower() == "expdecay":
         return ExponentialLR(optimizer, gamma=0.1)
 
