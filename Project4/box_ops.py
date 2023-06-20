@@ -103,10 +103,10 @@ def compute_ious(box, boxes):
     intersection = (ix2 - ix1) * (iy2 - iy1)
     
     # Intersection over union
-    ious = intersection / (w1 * h1 + w2 * h2 - intersection)
+    ious = intersection / (w1 * h1 + w2 * h2 - intersection + 1e-7)
     
     # If intersection is 0 return 0.
-    mask = ((ix2 - ix1) <= 0)  | ((iy2 - iy1) <= 0)
+    mask = ((ix2 - ix1) <= 0) | ((iy2 - iy1) <= 0)
     
     ious[mask] = 0
 
