@@ -7,9 +7,14 @@ class SimpleRCNN(nn.Module):
         super(SimpleRCNN, self).__init__()
     
         self.pretrained = self.get_resnet(n_layers)
-        self.new_layers = nn.Sequential(
-            nn.Linear(512, n_classes)
-        )
+        if n_layers in [18, 34]:
+            self.new_layers = nn.Sequential(
+                nn.Linear(512, n_classes)
+            )
+        elif n_layers in [50]:
+            self.new_layers = nn.Sequential(
+                nn.Linear(512 * 4, n_classes)
+            )
     
     def forward(self, x):
         x = self.pretrained(x)
