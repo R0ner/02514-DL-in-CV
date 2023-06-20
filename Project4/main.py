@@ -78,14 +78,15 @@ def train(model,
     # Parallel processing
     pool = mp.Pool(mp.cpu_count())
 
-    # Mixed precision
-    scaler = GradScaler()
-
     for epoch in range(num_epochs):
         print("* Epoch %d/%d" % (epoch + 1, num_epochs))
         model.train()
+        
         train_losses = []
         print_loss_total = 0  # Reset every print_every
+        train_correct = 0
+        print_train_correct = 0
+        N = 0
         for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
             # Get object proposals for all images in the batch
@@ -131,16 +132,21 @@ def train(model,
                 loss = criterion(output, y_batch_true)
                 loss.backward()
                 optimizer.step()
-                
-                
-                train_losses.append(loss.item())
-                
-                print_loss_total += loss.item()
-                
+                with torch.no_grad():
+                    preds = F.softmax(output, dim=1).argmax(1)
+                    n_correct = (y_batch_true == preds).sum().cpu().item()
+                    train_correct += n_correct
+                    print_train_correct += n_correct
+                    train_losses.append(loss.item())
 
+                print_loss_total += loss.item()
+            N_batch = y_true.size(0)
+            N += N_batch
             print_loss_avg = print_loss_total / (j + 1)
             print(f"Average loss: {print_loss_avg:.2f}")
+            print(f"Average accuracy: {print_train_correct / N_batch:.3%}")
             print_loss_total = 0
+            print_train_correct = 0
 
         avg_train_loss = np.mean(train_losses)
 
@@ -176,13 +182,14 @@ def train(model,
 
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
+        out_dict['train_acc'].append(train_correct / N)
         out_dict["val_loss"].append(avg_val_loss)
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
 
         print(
             f"Epoch: {epoch}, ",
-            f"Training Loss: {avg_train_loss:.4f}, ",
-            f"Validation Loss: {avg_val_loss:.4f}, ",
+            f"Train Loss: {avg_train_loss:.4f}, Train Accuracy: {out_dict['train_acc'][-1]:.1%}",
+            f"Val. Loss: {avg_val_loss:.4f}, ",
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
