@@ -11,7 +11,7 @@ import torch.multiprocessing as mp
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
 from utils import filter_and_label_proposals
-from visualize import plot_learning_curves
+# from visualize import plot_learning_curves
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from data import get_waste
 from tqdm import tqdm
@@ -60,15 +60,16 @@ def train(model,
         val_loader,
         scheduler,
         num_epochs,
+        in_batch_size=32,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
 
     # Resize transform
     resize = transforms.Resize((256, 256), antialias=True)
 
     # Selective search module
-    ss = SelectiveSearch(mode='f', nkeep=100)
+    ss = SelectiveSearch(mode='f', nkeep=400)
 
-    # Criterions for classification loss and regression loss
+    # Criterion for classification loss
     criterion =  nn.CrossEntropyLoss()
     
     model.to(device)
@@ -91,7 +92,7 @@ def train(model,
             proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
             proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
-            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) 
+            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).astype(int) 
                                                  for proposal_boxes, target in zip(proposals_batch, targets)]
             
             y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
@@ -99,31 +100,42 @@ def train(model,
             
             #X = [resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes]
             #random.shuffle(X)
-            #X = torch.stack(X).to(device)
+            #X = torch.stack(X).to(device)¨
+            # print(*[boxes for boxes in boxes_batch])
             X = torch.stack([resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes])
+            #print(X.size())
+            shuffle = torch.randperm(y_true.size(0))
 
-            X = X.to(device)
-            y_true = y_true.to(device)
-            y_true = y_true.long()
-            
-            optimizer.zero_grad()
-            with autocast():
-                output = model(X)
-                loss = criterion(output, y_true)
+            for j in range(shuffle.size(0) // in_batch_size + bool(shuffle.size(0) % in_batch_size)):
+                indices = shuffle[j * in_batch_size: (j + 1) * in_batch_size]
+                X_batch, y_batch_true = X[indices], y_true[indices]
+                
+                X_batch = X_batch.to(device)
+                y_batch_true = y_batch_true.to(device)
+                y_batch_true = y_batch_true.long()
+                
+                optimizer.zero_grad()
+                output = model(X_batch)
+                loss = criterion(output, y_batch_true)
+                loss.backward()
+                optimizer.step()
+                # with autocast():
+                #     output = model(X_batch)
+                #     loss = criterion(output, y_batch_true)
 
-            #loss.backward()
-            #optimizer.step()
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            
-            train_losses.append(loss.item())
+                
+                # scaler.scale(loss).backward()
+                # scaler.step(optimizer)
+                # scaler.update()
+                
+                train_losses.append(loss.item())
 
-            print_loss_total += loss.item()
-            if (i + 1) % 10 == 0:
-                print_loss_avg = print_loss_total / 10
-                print_loss_total = 0
-                print(f"[{i+1}] Average loss: {print_loss_avg:.2f}")
+                # print("Batch loss: {loss.item():.2f}")
+                print_loss_total += loss.item()
+
+            print_loss_avg = print_loss_total / (j + 1)
+            print(f"Average loss: {print_loss_avg:.2f}")
+            print_loss_total = 0
 
         avg_train_loss = np.mean(train_losses)
 
@@ -182,6 +194,7 @@ def main():
 
     # Define model and optimizers
     model = SimpleRCNN(args.n_layers, args.n_classes)
+    
     optimizer = get_optimizer(args.optimizer_type, model, args.pretrained_lr, args.new_layer_lr)
     lr_scheduler = get_lr_scheduler(args.lr_scheduler, optimizer)
 
@@ -206,7 +219,7 @@ def main():
     )
     print("Done!")
 
-    plot_learning_curves(out_dict)
+    # plot_learning_curves(out_dict)
 
 
 if __name__ == '__main__':
