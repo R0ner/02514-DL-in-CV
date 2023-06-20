@@ -7,7 +7,7 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-from data import get_waste
+from data import get_waste, standardize_inv
 from EarlyStopping import EarlyStopper
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
@@ -22,7 +22,7 @@ def set_args():
     parser.add_argument( "--n_classes", type=int, default=29, help="Number of classes in the data")
     parser.add_argument("--optimizer_type", type=str, default="adam", choices=["adam", "sgd"], help="Type of optimizer to use for training")
     parser.add_argument("--lr_scheduler",type=str,default="reducelronplateau",choices=["reducelronplateau", "expdecay"],help="Type of learning rate scheduler to use")
-    parser.add_argument("--pretrained_lr", type=float, default=1e-4, help="Initial learning rate for training")
+    parser.add_argument("--pretrained_lr", type=float, default=1e-5, help="Initial learning rate for training")
     parser.add_argument("--new_layer_lr", type=float, default=1e-3, help="Initial learning rate for training")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to train for")
     parser.add_argument("--no_save", action="store_true", help="Whether to save the result or not")
@@ -94,7 +94,7 @@ def train(model,
         for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
             # Get object proposals for all images in the batch
-            proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
+            proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None).numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
             # Get labels and subsample the region proposals for training purposes
             proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=True, min_proposals=4)
@@ -165,7 +165,7 @@ def train(model,
             for ims, targets in tqdm(val_loader):
 
                 # Get object proposals for all images in the batch
-                proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
+                proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None).numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
                 # Get labels and subsample the region proposals for training purposes
                 proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=False)
