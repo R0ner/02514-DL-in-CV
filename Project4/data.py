@@ -42,7 +42,7 @@ class WasteSet(dset.CocoDetection):
         self.supercategories = supercategories
 
         # Get ids pertiaining to split.
-        with open(os.path.join(os.getcwd(), 'split.json'), 'r') as f:
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'split.json'), 'r') as f:
             split_idx = json.loads(f.read())
         self.ids = [self.ids[i] for i in split_idx[split]]
 
