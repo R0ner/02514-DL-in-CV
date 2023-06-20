@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from data import get_waste
+from EarlyStopping import EarlyStopper
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
@@ -55,9 +56,10 @@ def train(model,
         optimizer,
         train_loader,
         val_loader,
-        scheduler,
         num_epochs,
         in_batch_size=32,
+        scheduler=None,
+        earlystopper=None,
         device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         args=None):
     
@@ -233,6 +235,18 @@ def train(model,
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
+        # Update learning rate
+        if isinstance(scheduler, ReduceLROnPlateau):
+            scheduler.step(avg_val_loss)
+        else:
+            scheduler.step()
+        
+        # Early stopping
+        if earlystopper is not None:
+            if earlystopper(avg_val_loss):
+                print('Training ended as the early stopping criteria was met.')
+                break
+        
         if args is not None:
             if args.save:
                 torch.save({
@@ -240,9 +254,9 @@ def train(model,
                     'optimizer_state_dict': optimizer.state_dict(),
                     'args': args,
                     'epoch': epoch
-                    }, 'Project4/models/{model_name}_stats.pt')
+                    }, f'models/{model_name}.pt')
                 # Stats
-                save_path = f"'Project4/models/{model_name}.json"
+                save_path = f"models/{model_name}_stats.json"
                 print(f"Saving training stats to:\t{save_path}")
 
                 with open(save_path, "w") as f:
@@ -264,6 +278,13 @@ def main():
     optimizer = get_optimizer(args.optimizer_type, model, args.pretrained_lr, args.new_layer_lr)
     lr_scheduler = get_lr_scheduler(args.lr_scheduler, optimizer)
 
+    # Early stopping setup
+    earlystopper = (
+        EarlyStopper(patience=args.early_stopping_patience)
+        if args.early_stopping
+        else None
+    )
+    
     # Data loading
     print("Getting data...")
     _, _, _, train_loader, val_loader, test_loader = get_waste(args.batch_size,
@@ -281,6 +302,7 @@ def main():
         train_loader,
         val_loader,
         scheduler=lr_scheduler,
+        earlystopper=earlystopper,
         num_epochs = args.num_epochs,
         args=args
     )
