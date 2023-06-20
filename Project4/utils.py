@@ -71,10 +71,12 @@ def get_cmap(n, name='hsv'):
 
 
 def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
+     # TODO: validate -> filter out proposals with zero width or height right after creation
     proposals_batch_labels = []
     for i, target in enumerate(targets):
         proposals = proposals_batch[i]
-        h, w = target['size']
+        valid = (proposals[:, 2] > 2) & (proposals[:, 3] > 2)
+        proposals = proposals[valid]
         if target['bboxes'].shape[0] == 0:
             proposals = proposals[np.random.choice(proposals.shape[0], size=min_proposals, replace=False)]
             proposal_labels = np.array(min_proposals * [0])
@@ -92,12 +94,6 @@ def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
             
             proposals = proposals[include]
             proposal_labels = proposal_labels[include]
-        
-        # TODO: validate -> filter out proposals with zero width or height right after creation
-        valid_dims = (proposals[:, 2] > proposals[:, 0]) & (proposals[:, 3] > proposals[:, 1])
-        proposals = proposals[valid_dims]
-        proposal_labels = proposal_labels[valid_dims]
-
 
         proposals_batch[i] = proposals
         proposals_batch_labels.append(proposal_labels)

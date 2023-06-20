@@ -122,7 +122,8 @@ def waste_collate_fn(batch):
             # Handle the case where 'bboxes' is empty TODO: Validate
             bboxes_scaled = torch.empty((0, 4))
         else:
-            bboxes_scaled = bboxes * torch.tensor([w, h, w, h])
+            bboxes_scaled = (bboxes * torch.tensor([w, h, w, h])).round()
+            bboxes_scaled[:, 2:] = torch.clamp(bboxes_scaled[:, 2:], 2)
         target_batch.append({
             'bboxes_unit': bboxes,
             #'bboxes': bboxes * torch.tensor([w, h, w, h]),
