@@ -14,7 +14,7 @@ class SimpleRCNN(nn.Module):
     def forward(self, x):
         x = self.pretrained(x)
         # Flatten the output tensor
-        x = x.view(x.size(0), -1)
+        x = torch.flatten(x, 1)
         x = self.new_layers(x)
         return x
 
