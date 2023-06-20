@@ -70,7 +70,7 @@ def get_cmap(n, name='hsv'):
     return plt.cm.get_cmap(name, n)
 
 
-def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
+def label_proposals(proposals_batch, targets, filter=False, min_proposals=4):
      # TODO: validate -> filter out proposals with zero width or height right after creation
     proposals_batch_labels = []
     for i, target in enumerate(targets):
@@ -78,8 +78,11 @@ def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
         valid = (proposals[:, 2] > 2) & (proposals[:, 3] > 2)
         proposals = proposals[valid]
         if target['bboxes'].shape[0] == 0:
-            proposals = proposals[np.random.choice(proposals.shape[0], size=min_proposals, replace=False)]
-            proposal_labels = np.array(min_proposals * [0])
+            if filter:
+                proposals = proposals[np.random.choice(proposals.shape[0], size=min_proposals, replace=False)]
+                proposal_labels = np.zeros(min_proposals)
+            else:
+                proposal_labels = np.zeros(proposals.size)
         else:
             proposal_labels = np.zeros(proposals.shape[0])
             # proposals_unit = proposals / np.array([w, h, w, h])
@@ -88,12 +91,13 @@ def filter_and_label_proposals(proposals_batch, targets, min_proposals=4):
             ious_filter = ious[:, mask]
             proposal_labels[mask] = target['category_ids'].numpy()[ious_filter.argmax(0)]
             
-            # Include all positives and 3/4 parts background.
-            include = np.where(proposal_labels != 0)[0]
-            include = np.concatenate((include, np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]))
-            
-            proposals = proposals[include]
-            proposal_labels = proposal_labels[include]
+            if filter:
+                # Include all positives and 3/4 parts background.
+                include = np.where(proposal_labels != 0)[0]
+                include = np.concatenate((include, np.where(proposal_labels == 0)[0][:max(3 * include.size, min_proposals)]))
+                
+                proposals = proposals[include]
+                proposal_labels = proposal_labels[include]
 
         proposals_batch[i] = proposals
         proposals_batch_labels.append(proposal_labels)
