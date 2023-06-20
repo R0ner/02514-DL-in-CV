@@ -22,7 +22,7 @@ def set_args():
     parser.add_argument( "--n_classes", type=int, default=29, help="Number of classes in the data")
     parser.add_argument("--optimizer_type", type=str, default="adam", choices=["adam", "sgd"], help="Type of optimizer to use for training")
     parser.add_argument("--lr_scheduler",type=str,default="reducelronplateau",choices=["reducelronplateau", "expdecay"],help="Type of learning rate scheduler to use")
-    parser.add_argument("--pretrained_lr", type=float, default=1e-5, help="Initial learning rate for training")
+    parser.add_argument("--pretrained_lr", type=float, default=1e-4, help="Initial learning rate for training")
     parser.add_argument("--new_layer_lr", type=float, default=1e-3, help="Initial learning rate for training")
     parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to train for")
     parser.add_argument("--no_save", action="store_true", help="Whether to save the result or not")
@@ -169,12 +169,10 @@ def train(model,
 
                 # Get labels and subsample the region proposals for training purposes
                 proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=False)
-                boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).astype(int) 
-                                                    for proposal_boxes, target in zip(proposals_batch, targets)]
+                boxes_batch = proposals_batch
                 
                 # Labels
-                y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
-                                                    for proposal_labels, target in zip(proposals_batch_labels, targets)]))
+                y_true = torch.tensor(np.concatenate(proposals_batch_labels))
                 
                 # Crop out proposals and resize.
                 X = []
@@ -192,7 +190,8 @@ def train(model,
                 X = torch.stack(X)
                 y_true = y_true[torch.tensor(valid)]
 
-                shuffle = torch.randperm(y_true.size(0))
+                # Dont shuffle here
+                shuffle = torch.arange(y_true.size(0))
 
                 for j in range(shuffle.size(0) // in_batch_size + bool(shuffle.size(0) % in_batch_size)):
                     indices = shuffle[j * in_batch_size: (j + 1) * in_batch_size]
