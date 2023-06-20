@@ -62,6 +62,46 @@ def show_cmap(names):
         t.set_bbox(dict(facecolor=cmap(i)))
         ax.axis('off')
 
+def get_bbox_(target):
+    """
+    Gets the resized bounding box from the target(s) in the data.
+    A singular target is a dict that can have multiple object bboxes inside.
+    """
+    out = []
+    for t in range(len(target)):
+        im_h, im_w = target[t]['size']
+        #print(f"Target {t} has size {target[t]['size']}")
+        #print("Resizing the bbox...")
+        bbox = [x, y, w, h] = target[t]['bbox']
+        resized_bbox = [x * im_w, y * im_h, w * im_w, h * im_h]
+        out.append(resized_bbox)
+    return out
+
+def get_iou(box1, box2):
+    # Extract coordinates from bounding boxes
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+    
+    # Calculate the coordinates of the intersection rectangle
+    intersection_x1 = max(x1, x2)
+    intersection_y1 = max(y1, y2)
+    intersection_x2 = min(x1 + w1, x2 + w2)
+    intersection_y2 = min(y1 + h1, y2 + h2)
+    
+    # Calculate the area of the intersection rectangle
+    intersection_area = max(0, intersection_x2 - intersection_x1) * max(0, intersection_y2 - intersection_y1)
+    
+    # Calculate the area of each bounding box
+    area_box1 = w1 * h1
+    area_box2 = w2 * h2
+    
+    # Calculate the union area
+    union_area = area_box1 + area_box2 - intersection_area
+    
+    # Calculate the IoU
+    iou = intersection_area / union_area    
+    return iou
+
 
 def get_cmap(n, name='hsv'):
     '''https://stackoverflow.com/questions/14720331/how-to-generate-random-colors-in-matplotlib
