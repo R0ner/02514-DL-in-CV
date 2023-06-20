@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152
+import torchvision.models as tvm
 
 class SimpleRCNN(nn.Module):
     def __init__(self, n_layers, n_classes):
@@ -23,15 +23,15 @@ class SimpleRCNN(nn.Module):
         assert n_layers in supported, f"'n_layers' should be one of {supported}"
 
         if n_layers == 18:
-            model = resnet18(pretrained=True) 
-        elif n_layers == 34:
-            model = resnet34(pretrained=True)
-        elif n_layers == 50:
-            model = resnet50(pretrained=True) 
-        elif n_layers == 101:
-            model = resnet101(pretrained=True)
-        elif n_layers == 152:
-            model = resnet152(pretrained=True)
+            model = tvm.resnet18(weights=tvm.ResNet18_Weights.DEFAULT) #Most up to date weights
+        if n_layers == 34:
+            model = tvm.resnet34(weights=tvm.ResNet34_Weights.DEFAULT) #Most up to date weights
+        if n_layers == 50:
+            model = tvm.resnet50(weights=tvm.ResNet50_Weights.DEFAULT) #Most up to date weights
+        if n_layers == 101:
+            model = tvm.resnet101(weights=tvm.ResNet101_Weights.DEFAULT) #Most up to date weights
+        if n_layers == 152:
+            model = tvm.resnet152(weights=tvm.ResNet152_Weights.DEFAULT) #Most up to date weights
 
         # Dropping the final layer of the pre-trained model
         model = nn.Sequential(*list(model.children())[:-1])  
