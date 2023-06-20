@@ -10,7 +10,7 @@ import torch.multiprocessing as mp
 
 from model import SimpleRCNN
 from selectivesearch import SelectiveSearch
-from utils import filter_and_label_proposals
+from utils import label_proposals
 # from visualize import plot_learning_curves
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from data import get_waste
@@ -86,14 +86,14 @@ def train(model,
         print_loss_total = 0  # Reset every print_every
         train_correct = 0
         print_train_correct = 0
-        N = 0
+        N_train = 0
         for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
             # Get object proposals for all images in the batch
             proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
             # Get labels and subsample the region proposals for training purposes
-            proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
+            proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=True, min_proposals=4)
             boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).astype(int) 
                                                  for proposal_boxes, target in zip(proposals_batch, targets)]
             
@@ -141,7 +141,7 @@ def train(model,
 
                 print_loss_total += loss.item()
             N_batch = y_true.size(0)
-            N += N_batch
+            N_train += N_batch
             print_loss_avg = print_loss_total / (j + 1)
             print(f"Average loss: {print_loss_avg:.2f}")
             print(f"Average accuracy: {print_train_correct / N_batch:.3%}")
@@ -153,43 +153,83 @@ def train(model,
         # Validation phase
         model.eval()
         val_losses = []
-        for ims, targets in tqdm(val_loader):
+        print_loss_total = 0  # Reset every print_every
+        val_correct = 0
+        print_val_correct = 0
+        N_val = 0
+        with torch.no_grad():
+            for ims, targets in tqdm(val_loader):
 
-            # Selective search with multiprocessing
-            proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims])
+                # Get object proposals for all images in the batch
+                proposals_batch = pool.map(ss, [(np.moveaxis(im.numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
-            proposals_batch, proposals_batch_labels = filter_and_label_proposals(proposals_batch, targets)
-            boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).round().astype(int) 
-                           for proposal_boxes, target in zip(proposals_batch, targets)]
-            
-            y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
-                                                  for proposal_labels, target in zip(proposals_batch_labels, targets)]))
-            
-            # Below is a temporary fix for when bounding boxes has zero height or width
-            X = torch.stack([resize.forward(im[:, y:y+h, x:x+w]) for im, boxes in zip(ims, boxes_batch) for x, y, w, h in boxes])
-            X = X.to(device)
+                # Get labels and subsample the region proposals for training purposes
+                proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=False)
+                boxes_batch = [np.vstack((proposal_boxes, target['bboxes'].numpy())).astype(int) 
+                                                    for proposal_boxes, target in zip(proposals_batch, targets)]
+                
+                # Labels
+                y_true = torch.tensor(np.concatenate([np.concatenate((proposal_labels, target['category_ids'].numpy())) 
+                                                    for proposal_labels, target in zip(proposals_batch_labels, targets)]))
+                
+                # Crop out proposals and resize.
+                X = []
+                valid = []
+                idx = 0
+                for im, boxes in zip(ims, boxes_batch):
+                    for (x, y, w, h) in boxes:
+                        candidate = im[:, y:y+max(h, 2), x:x+max(w, 2)]
+                        if any(torch.tensor(candidate.size()) == 0):
+                            idx += 1
+                            continue
+                        X.append(resize.forward(candidate))
+                        valid.append(idx)
+                        idx += 1
+                X = torch.stack(X)
+                y_true = y_true[torch.tensor(valid)]
 
-            y_true = y_true.to(device)
-            y_true = y_true.long()
+                shuffle = torch.randperm(y_true.size(0))
 
-            with torch.no_grad(), autocast():
-                output = model(X)
-                loss = criterion(output, y_true)
-            
-            val_losses.append(loss.item())
+                for j in range(shuffle.size(0) // in_batch_size + bool(shuffle.size(0) % in_batch_size)):
+                    indices = shuffle[j * in_batch_size: (j + 1) * in_batch_size]
+                    X_batch, y_batch_true = X[indices], y_true[indices]
+                    
+                    X_batch = X_batch.to(device)
+                    y_batch_true = y_batch_true.to(device)
+                    y_batch_true = y_batch_true.long()
+                    
+                    output = model(X_batch)
+
+                    loss = criterion(output, y_batch_true)
+                    with torch.no_grad():
+                        preds = F.softmax(output, dim=1).argmax(1)
+                        n_correct = (y_batch_true == preds).sum().cpu().item()
+                        val_correct += n_correct
+                        print_val_correct += n_correct
+                        val_losses.append(loss.item())
+
+                    print_loss_total += loss.item()
+                N_batch = y_true.size(0)
+                N_val += N_batch
+                print_loss_avg = print_loss_total / (j + 1)
+                print(f"Average loss: {print_loss_avg:.2f}")
+                print(f"Average accuracy: {print_val_correct / N_batch:.3%}")
+                print_loss_total = 0
+                print_val_correct = 0
 
         avg_val_loss = np.mean(val_losses)
 
         out_dict["epoch"].append(epoch)
         out_dict["train_loss"].append(avg_train_loss)
-        out_dict['train_acc'].append(train_correct / N)
+        out_dict['train_acc'].append(train_correct / N_train)
         out_dict["val_loss"].append(avg_val_loss)
+        out_dict['val_acc'].append(val_correct / N_val)
         out_dict["lr"].append(optimizer.param_groups[0]["lr"])
 
         print(
             f"Epoch: {epoch}, ",
             f"Train Loss: {avg_train_loss:.4f}, Train Accuracy: {out_dict['train_acc'][-1]:.1%}",
-            f"Val. Loss: {avg_val_loss:.4f}, ",
+            f"Val. Loss: {avg_val_loss:.4f}, Val. Accuracy: {out_dict['val_acc'][-1]:.1%} ",
             f"Learning rate: {out_dict['lr'][-1]:.1e}"
         )
 
