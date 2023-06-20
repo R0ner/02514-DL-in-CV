@@ -13,8 +13,8 @@ def nms(boxes, scores=None, iou_threshold=.5):
     # coordinates of bounding boxes
     start_x = boxes[:, 0]
     start_y = boxes[:, 1]
-    end_x = boxes[:, 2]
-    end_y = boxes[:, 3]
+    end_x = boxes[:, 0] + boxes[:, 2]
+    end_y = boxes[:, 1] + boxes[:, 3]
 
     # Confidence scores of bounding boxes
     if scores is None:
