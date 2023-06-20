@@ -94,7 +94,7 @@ def train(model,
         for i, (ims, targets) in enumerate(tqdm(train_loader)):
 
             # Get object proposals for all images in the batch
-            proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None).numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
+            proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None)[0].numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
             # Get labels and subsample the region proposals for training purposes
             proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=True, min_proposals=4)
@@ -165,7 +165,7 @@ def train(model,
             for ims, targets in tqdm(val_loader):
 
                 # Get object proposals for all images in the batch
-                proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None).numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
+                proposals_batch = pool.map(ss, [(np.moveaxis(standardize_inv(im, None)[0].numpy(), 0, 2) * 255).astype(np.uint8) for im in ims]) # Multiprocessing for Selective search
 
                 # Get labels and subsample the region proposals for training purposes
                 proposals_batch, proposals_batch_labels = label_proposals(proposals_batch, targets, filter=False)
